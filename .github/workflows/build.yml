@@ -1,51 +1,35 @@
-name: Build-Kernel-AOSP-Standard
+name: Build-Kernel-AOSP-Bazel-Official
 on:
   workflow_dispatch:
 
 jobs:
-  build:
+  Build-Kernel:
     runs-on: ubuntu-latest
     steps:
       - name: Free Disk Space
         uses: jlumbroso/free-disk-space@v1.3.1
 
-      - name: Clone Official AOSP Source
-        run: |
-          git clone --depth 1 -b android15-6.6-2025-02_r1 https://android.googlesource.com/kernel/common kernel_source
-          
-      - name: Install Build Tools
+      - name: Setup Build Environment
         run: |
           sudo apt update
-          sudo apt install -y git-core gnupg flex bison build-essential zip curl zlib1g-dev libncurses5-dev x11proto-core-dev libxml2-utils xsltproc unzip python3 bc llvm lld clang lz4
+          curl https://raw.githubusercontent.com/akhilnarang/scripts/master/setup/android_build_env.sh | bash -
 
-      - name: Setup Google Clang
+      - name: Repo Init & Sync
         run: |
-          mkdir clang
-          cd clang
-          curl -LO https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/clang-r522817.tar.gz
-          tar -xf clang-r522817.tar.gz
-          echo "$(pwd)/bin" >> $GITHUB_PATH
+          repo init -u https://gitlab.com/xprateek/kernel_manifest -b common-android15-6.6 --depth=1
+          repo sync -c -j$(nproc)
 
-      - name: Standard GKI Configs
+      - name: Build with Bazel
         run: |
-          cd kernel_source
-          echo "CONFIG_MODVERSIONS=n" >> arch/arm64/configs/gki_defconfig
-          echo "CONFIG_MODULE_SIG=n" >> arch/arm64/configs/gki_defconfig
-          echo "CONFIG_BUILD_ARM64_APPENDED_DTB_IMAGE=y" >> arch/arm64/configs/gki_defconfig
+          tools/bazel build --config=fast //common:kernel_aarch64_dist
 
-      - name: Build Kernel
-        run: |
-          cd kernel_source
-          make ARCH=arm64 O=out LLVM=1 LLVM_IAS=1 CROSS_COMPILE=aarch64-linux-android- gki_defconfig
-          make ARCH=arm64 O=out LLVM=1 LLVM_IAS=1 CROSS_COMPILE=aarch64-linux-android- -j$(nproc) Image Image-dtb
-
-      - name: Export All Possible Images
+      - name: Export Image
         run: |
           mkdir -p output
-          find kernel_source/out/arch/arm64/boot/ -name "Image*" -exec cp {} ./output/ \;
+          find out/ -name Image -exec cp {} ./output/Image \;
 
-      - name: Upload Standard Kernel
+      - name: Upload Kernel Image
         uses: actions/upload-artifact@v4
         with:
-          name: Kernel-AOSP-Standard-Images
-          path: ./output/
+          name: Kernel-AOSP-15-6.6-Official
+          path: ./output/Image
