@@ -1,4 +1,4 @@
-name: Build ReSukiSU Kernel LI9 (GKI 6.6)
+name: Build-ReSukiSU-LI9-Raw-Image
 on:
   workflow_dispatch:
 
@@ -16,65 +16,49 @@ jobs:
 
       - name: Sync Kernel Source
         run: |
-          # Downloading the specific Android 15 GKI 6.6 Tag
           git clone --depth 1 -b android15-6.6-2025-02_r1 https://android.googlesource.com/kernel/common common
 
-      - name: Setup Google Clang (Prebuilt)
+      - name: Setup Google Clang
         run: |
           mkdir clang
           cd clang
-          # Downloading the official Google Clang r522817 for Android 15
           curl -LO https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/clang-r522817.tar.gz
           tar -xf clang-r522817.tar.gz
-          # Add Clang bin to PATH
           echo "$(pwd)/bin" >> $GITHUB_PATH
 
       - name: Integrate ReSukiSU
         run: |
           cd common
-          # Official ReSukiSU setup script
           curl -LSs "https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/main/kernel/setup.sh" | bash
 
-      - name: Apply Manual Hooks (Automated sed)
+      - name: Precision Manual Hooks Injection
         run: |
           cd common
-          # Injecting ReSukiSU hooks into filesystem layer
-          sed -i '/vfs_read(struct file/i #ifdef CONFIG_KSU\nextern int ksu_handle_vfs_read(struct file *file, char __user *buf, size_t count, loff_t *pos);\n#endif' fs/read_write.c
+          
+          # 1. fs/exec.c
+          sed -i '/static int do_execveat_common(/i #ifdef CONFIG_KSU\nextern int ksu_handle_execveat(int *fd, struct filename **filename, void *argv, void *envp, int *flags);\n#endif' fs/exec.c
+          sed -i '/retval = bprm_execve(bprm);/i #ifdef CONFIG_KSU\n\tksu_handle_execveat(&fd, &filename, &argv, &envp, &flags);\n#endif' fs/exec.c
+          
+          # 2. fs/read_write.c
+          sed -i '/ssize_t vfs_read(struct file/i #ifdef CONFIG_KSU\nextern int ksu_handle_vfs_read(struct file *file, char __user *buf, size_t count, loff_t *pos);\n#endif' fs/read_write.c
+          sed -i '/if (!(file->f_mode & FMODE_READ))/a \ \ \ \ #ifdef CONFIG_KSU\n\tksu_handle_vfs_read(file, buf, count, pos);\n\t#endif' fs/read_write.c
+
+          # 3. fs/open.c
+          sed -i '/static long do_faccessat(/i #ifdef CONFIG_KSU\nextern int ksu_handle_faccessat(int *dfd, const char __user **filename, int *mode, int *flags);\n#endif' fs/open.c
+          sed -i '/retry_estale:/a \ \ \ \ #ifdef CONFIG_KSU\n\tksu_handle_faccessat(&dfd, &filename, &mode, &flags);\n\t#endif' fs/open.c
 
       - name: Final Configuration and Compilation
         run: |
           cd common
-          # Finding the right gki_defconfig path
-          CONF_PATH=$(find arch/arm64/configs/ -name "gki_defconfig" | head -n 1)
-          echo "[+] Found config at: $CONF_PATH"
-          
-          # Enabling ReSukiSU and Manual Hook configs
+          CONF_PATH="arch/arm64/configs/gki_defconfig"
           echo "CONFIG_KSU=y" >> $CONF_PATH
           echo "CONFIG_KSU_MANUAL_HOOK=y" >> $CONF_PATH
           
-          # Start the build process with LLVM and Integrated Assembler
           make ARCH=arm64 O=out LLVM=1 LLVM_IAS=1 CROSS_COMPILE=aarch64-linux-android- gki_defconfig
           make ARCH=arm64 O=out LLVM=1 LLVM_IAS=1 CROSS_COMPILE=aarch64-linux-android- -j$(nproc)
 
-      - name: Create Flashable Zip (AnyKernel3)
-        run: |
-          git clone https://github.com/osm0sis/AnyKernel3
-          # Copying the generated Image to the flash tool
-          if [ -f common/out/arch/arm64/boot/Image ]; then
-            cp common/out/arch/arm64/boot/Image AnyKernel3/
-          else
-            echo "[-] Error: Kernel Image not found!"
-            exit 1
-          fi
-          
-          cd AnyKernel3
-          # Setup AnyKernel3 metadata for Tecno Pova 6 Pro
-          sed -i 's/device.name1=.*/device.name1=LI9/g' anykernel.sh
-          sed -i 's/block=.*/block=\/dev\/block\/by-name\/boot;/g' anykernel.sh
-          zip -r ../ReSukiSU_GKI_6.6_LI9.zip *
-
-      - name: Upload Finished Kernel
+      - name: Upload Raw Kernel Image
         uses: actions/upload-artifact@v4
         with:
-          name: ReSukiSU-Kernel-LI9
-          path: ReSukiSU_GKI_6.6_LI9.zip
+          name: Raw-Kernel-Image-LI9
+          path: common/out/arch/arm64/boot/Image
