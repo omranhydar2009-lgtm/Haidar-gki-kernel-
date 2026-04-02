@@ -1,64 +1,15 @@
-name: Build-ReSukiSU-LI9-Raw-Image
+name: Mirror-Google-Kernel
 on:
   workflow_dispatch:
 
 jobs:
-  build:
+  mirror:
     runs-on: ubuntu-latest
     steps:
-      - name: Free Disk Space
+      - name: Maximize build space
         uses: jlumbroso/free-disk-space@v1.3.1
 
-      - name: Install Build Tools
+      - name: Mirror Branch
         run: |
-          sudo apt update
-          sudo apt install -y git-core gnupg flex bison build-essential zip curl zlib1g-dev libncurses5-dev x11proto-core-dev libx11-dev libgl1-mesa-dev libxml2-utils xsltproc unzip python3 bc llvm lld clang
-
-      - name: Sync Kernel Source
-        run: |
-          git clone --depth 1 -b android15-6.6-2025-02_r1 https://android.googlesource.com/kernel/common common
-
-      - name: Setup Google Clang
-        run: |
-          mkdir clang
-          cd clang
-          curl -LO https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/clang-r522817.tar.gz
-          tar -xf clang-r522817.tar.gz
-          echo "$(pwd)/bin" >> $GITHUB_PATH
-
-      - name: Integrate ReSukiSU
-        run: |
-          cd common
-          curl -LSs "https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/main/kernel/setup.sh" | bash
-
-      - name: Precision Manual Hooks Injection
-        run: |
-          cd common
-          
-          # 1. fs/exec.c
-          sed -i '/static int do_execveat_common(/i #ifdef CONFIG_KSU\nextern int ksu_handle_execveat(int *fd, struct filename **filename, void *argv, void *envp, int *flags);\n#endif' fs/exec.c
-          sed -i '/retval = bprm_execve(bprm);/i #ifdef CONFIG_KSU\n\tksu_handle_execveat(&fd, &filename, &argv, &envp, &flags);\n#endif' fs/exec.c
-          
-          # 2. fs/read_write.c
-          sed -i '/ssize_t vfs_read(struct file/i #ifdef CONFIG_KSU\nextern int ksu_handle_vfs_read(struct file *file, char __user *buf, size_t count, loff_t *pos);\n#endif' fs/read_write.c
-          sed -i '/if (!(file->f_mode & FMODE_READ))/a \ \ \ \ #ifdef CONFIG_KSU\n\tksu_handle_vfs_read(file, buf, count, pos);\n\t#endif' fs/read_write.c
-
-          # 3. fs/open.c
-          sed -i '/static long do_faccessat(/i #ifdef CONFIG_KSU\nextern int ksu_handle_faccessat(int *dfd, const char __user **filename, int *mode, int *flags);\n#endif' fs/open.c
-          sed -i '/retry_estale:/a \ \ \ \ #ifdef CONFIG_KSU\n\tksu_handle_faccessat(&dfd, &filename, &mode, &flags);\n\t#endif' fs/open.c
-
-      - name: Final Configuration and Compilation
-        run: |
-          cd common
-          CONF_PATH="arch/arm64/configs/gki_defconfig"
-          echo "CONFIG_KSU=y" >> $CONF_PATH
-          echo "CONFIG_KSU_MANUAL_HOOK=y" >> $CONF_PATH
-          
-          make ARCH=arm64 O=out LLVM=1 LLVM_IAS=1 CROSS_COMPILE=aarch64-linux-android- gki_defconfig
-          make ARCH=arm64 O=out LLVM=1 LLVM_IAS=1 CROSS_COMPILE=aarch64-linux-android- -j$(nproc)
-
-      - name: Upload Raw Kernel Image
-        uses: actions/upload-artifact@v4
-        with:
-          name: Raw-Kernel-Image-LI9
-          path: common/out/arch/arm64/boot/Image
+          git config --global user.name "github-actions"
+          git config --global user.email "github-actions@github.com"
