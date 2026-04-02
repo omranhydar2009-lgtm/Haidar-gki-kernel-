@@ -16,47 +16,50 @@ jobs:
 
       - name: Sync Kernel Source
         run: |
-          # Sync Android 15 Kernel 6.6 Source
+          # Syncing Android 15 Kernel 6.6 Source (Specific Tag)
           git clone --depth 1 -b android15-6.6-2025-02_r1 https://android.googlesource.com/kernel/common common
           
       - name: Integrate ReSukiSU
         run: |
           cd common
-          # Install ReSukiSU
+          # Install ReSukiSU using official setup script
           curl -LSs "https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/main/kernel/setup.sh" | bash
 
-      - name: Apply Manual Hooks (ReSukiSU Only)
+      - name: Apply Manual Hooks
         run: |
           cd common
           # Inject ReSukiSU Hooks into fs/read_write.c
-          # This is required for Manual Hook mode to work
           sed -i '/vfs_read(struct file/i #ifdef CONFIG_KSU\nextern int ksu_handle_vfs_read(struct file *file, char __user *buf, size_t count, loff_t *pos);\n#endif' fs/read_write.c
 
       - name: Configure and Build
         run: |
           cd common
-          # Enable ReSukiSU configs in gki_defconfig
-          echo "CONFIG_KSU=y" >> arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_MANUAL_HOOK=y" >> arch/arm64/configs/gki_defconfig
+          # Find gki_defconfig and append ReSukiSU configs
+          CONF_PATH=$(find arch/arm64/configs/ -name "gki_defconfig" | head -n 1)
+          echo "[+] Found config at: $CONF_PATH"
           
-          # Start Building using LLVM/Clang
-          make ARCH=arm64 O=out vendor/gki_defconfig
+          echo "CONFIG_KSU=y" >> $CONF_PATH
+          echo "CONFIG_KSU_MANUAL_HOOK=y" >> $CONF_PATH
+          
+          # Use the generic gki_defconfig for building
+          make ARCH=arm64 O=out gki_defconfig
+          
+          # Start building with LLVM/Clang
           make ARCH=arm64 O=out CROSS_COMPILE=aarch64-linux-android- LLVM=1 -j$(nproc)
 
       - name: Package with AnyKernel3
         run: |
           git clone https://github.com/osm0sis/AnyKernel3
-          # Copy the generated kernel image
+          # Copy the compiled kernel image
           cp common/out/arch/arm64/boot/Image AnyKernel3/
           cd AnyKernel3
-          # Set Device Codename to LI9
+          # Setup AnyKernel3 for Tecno LI9
           sed -i 's/device.name1=.*/device.name1=LI9/g' anykernel.sh
-          # Set Boot partition path
           sed -i 's/block=.*/block=\/dev\/block\/by-name\/boot;/g' anykernel.sh
-          zip -r ../ReSukiSU_Only_LI9.zip *
+          zip -r ../ReSukiSU_Kernel_LI9.zip *
 
-      - name: Upload Kernel Artifact
+      - name: Upload Kernel
         uses: actions/upload-artifact@v4
         with:
           name: ReSukiSU-Kernel-LI9
-          path: ReSukiSU_Only_LI9.zip
+          path: ReSukiSU_Kernel_LI9.zip
