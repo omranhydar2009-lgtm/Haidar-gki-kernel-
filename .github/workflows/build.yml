@@ -12,54 +12,69 @@ jobs:
       - name: Install Build Tools
         run: |
           sudo apt update
-          sudo apt install -y git-core gnupg flex bison build-essential zip curl zlib1g-dev libncurses5-dev x11proto-core-dev libx11-dev libgl1-mesa-dev libxml2-utils xsltproc unzip python3 bc
+          sudo apt install -y git-core gnupg flex bison build-essential zip curl zlib1g-dev libncurses5-dev x11proto-core-dev libx11-dev libgl1-mesa-dev libxml2-utils xsltproc unzip python3 bc llvm lld clang
 
       - name: Sync Kernel Source
         run: |
-          # Syncing Android 15 Kernel 6.6 Source (Specific Tag)
+          # Downloading the specific Android 15 GKI 6.6 Tag
           git clone --depth 1 -b android15-6.6-2025-02_r1 https://android.googlesource.com/kernel/common common
-          
+
+      - name: Setup Google Clang (Prebuilt)
+        run: |
+          mkdir clang
+          cd clang
+          # Downloading the official Google Clang r522817 for Android 15
+          curl -LO https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/clang-r522817.tar.gz
+          tar -xf clang-r522817.tar.gz
+          # Add Clang bin to PATH
+          echo "$(pwd)/bin" >> $GITHUB_PATH
+
       - name: Integrate ReSukiSU
         run: |
           cd common
-          # Install ReSukiSU using official setup script
+          # Official ReSukiSU setup script
           curl -LSs "https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/main/kernel/setup.sh" | bash
 
-      - name: Apply Manual Hooks
+      - name: Apply Manual Hooks (Automated sed)
         run: |
           cd common
-          # Inject ReSukiSU Hooks into fs/read_write.c
+          # Injecting ReSukiSU hooks into filesystem layer
           sed -i '/vfs_read(struct file/i #ifdef CONFIG_KSU\nextern int ksu_handle_vfs_read(struct file *file, char __user *buf, size_t count, loff_t *pos);\n#endif' fs/read_write.c
 
-      - name: Configure and Build
+      - name: Final Configuration and Compilation
         run: |
           cd common
-          # Find gki_defconfig and append ReSukiSU configs
+          # Finding the right gki_defconfig path
           CONF_PATH=$(find arch/arm64/configs/ -name "gki_defconfig" | head -n 1)
           echo "[+] Found config at: $CONF_PATH"
           
+          # Enabling ReSukiSU and Manual Hook configs
           echo "CONFIG_KSU=y" >> $CONF_PATH
           echo "CONFIG_KSU_MANUAL_HOOK=y" >> $CONF_PATH
           
-          # Use the generic gki_defconfig for building
-          make ARCH=arm64 O=out gki_defconfig
-          
-          # Start building with LLVM/Clang
-          make ARCH=arm64 O=out CROSS_COMPILE=aarch64-linux-android- LLVM=1 -j$(nproc)
+          # Start the build process with LLVM and Integrated Assembler
+          make ARCH=arm64 O=out LLVM=1 LLVM_IAS=1 CROSS_COMPILE=aarch64-linux-android- gki_defconfig
+          make ARCH=arm64 O=out LLVM=1 LLVM_IAS=1 CROSS_COMPILE=aarch64-linux-android- -j$(nproc)
 
-      - name: Package with AnyKernel3
+      - name: Create Flashable Zip (AnyKernel3)
         run: |
           git clone https://github.com/osm0sis/AnyKernel3
-          # Copy the compiled kernel image
-          cp common/out/arch/arm64/boot/Image AnyKernel3/
+          # Copying the generated Image to the flash tool
+          if [ -f common/out/arch/arm64/boot/Image ]; then
+            cp common/out/arch/arm64/boot/Image AnyKernel3/
+          else
+            echo "[-] Error: Kernel Image not found!"
+            exit 1
+          fi
+          
           cd AnyKernel3
-          # Setup AnyKernel3 for Tecno LI9
+          # Setup AnyKernel3 metadata for Tecno Pova 6 Pro
           sed -i 's/device.name1=.*/device.name1=LI9/g' anykernel.sh
           sed -i 's/block=.*/block=\/dev\/block\/by-name\/boot;/g' anykernel.sh
-          zip -r ../ReSukiSU_Kernel_LI9.zip *
+          zip -r ../ReSukiSU_GKI_6.6_LI9.zip *
 
-      - name: Upload Kernel
+      - name: Upload Finished Kernel
         uses: actions/upload-artifact@v4
         with:
           name: ReSukiSU-Kernel-LI9
-          path: ReSukiSU_Kernel_LI9.zip
+          path: ReSukiSU_GKI_6.6_LI9.zip
