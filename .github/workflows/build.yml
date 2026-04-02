@@ -1,4 +1,4 @@
-name: Mirror-Google-Kernel
+name: Mirror-To-Main
 on:
   workflow_dispatch:
 
@@ -9,7 +9,18 @@ jobs:
       - name: Maximize build space
         uses: jlumbroso/free-disk-space@v1.3.1
 
-      - name: Mirror Branch
+      - name: Mirror Branch to Main
         run: |
           git config --global user.name "github-actions"
           git config --global user.email "github-actions@github.com"
+          
+          git clone --depth 1 -b android15-6.6-2025-02_r1 https://android.googlesource.com/kernel/common kernel_common
+          
+          cd kernel_common
+          rm -rf .git
+          git init
+          git add .
+          git commit -m "Initial kernel source"
+          
+          git remote add origin https://${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+          git push -f origin master:main
