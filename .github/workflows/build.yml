@@ -11,4 +11,18 @@ jobs:
 
       - name: Clone and Push
         run: |
-          git config --global user.name "github-
+          git config --global user.name "github-actions"
+          git config --global user.email "github-actions@github.com"
+          
+          git clone --depth 1 -b android15-6.6-2025-02_r1 https://android.googlesource.com/kernel/common kernel_source
+          
+          cd kernel_source
+          rm -rf .git
+          git init
+          git checkout -b main
+          git add .
+          git commit -m "Initial Import"
+          
+          git remote add origin https://${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+          
+          git push -f origin main
