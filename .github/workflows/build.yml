@@ -1,4 +1,4 @@
-name: 🌙 Phase-1-Moon-Playground-Method
+name: 🌀 Phase-2-AOSPA-Method
 on:
   workflow_dispatch:
 
@@ -15,17 +15,12 @@ jobs:
           sudo apt install -y git-core gnupg flex bison build-essential zip curl zlib1g-dev libncurses5-dev x11proto-core-dev libxml2-utils xsltproc unzip python3 bc llvm lld clang lz4 repo
           curl https://raw.githubusercontent.com/akhilnarang/scripts/master/setup/android_build_env.sh | bash -
 
-      - name: Sync Source
+      - name: Sync Source (AOSPA Way)
         run: |
-          repo init -u https://android.googlesource.com/kernel/manifest -b android15-6.6 --depth=1
+          repo init -u https://github.com/AOSPA/android_kernel_manifest -b u-6.6 --depth=1
           repo sync -c -j$(nproc) --force-sync --no-clone-bundle
-          
-          cd common
-          git fetch --tags
-          git checkout android15-6.6-2025-02_r1
-          cd ..
 
-      - name: Build GKI (Moon-Playground Commands)
+      - name: Build GKI
         run: |
           tools/bazel build --config=fast //common:kernel_aarch64_dist
 
@@ -41,5 +36,5 @@ jobs:
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: GKI-6.6.66-Moon-Method
+          name: GKI-AOSPA-Method
           path: output/Image
