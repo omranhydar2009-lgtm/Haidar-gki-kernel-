@@ -1,4 +1,4 @@
-name: 🌀 Phase-2-AOSPA-Method
+name: 🚀 Phase-3-vmos0-Reverse-Method
 on:
   workflow_dispatch:
 
@@ -6,35 +6,38 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Free Disk Space
+      - name: "🧹 Free Disk Space"
         uses: jlumbroso/free-disk-space@v1.3.1
 
-      - name: Install Dependencies
+      - name: "👨‍🔧 Setup Build Environment"
         run: |
           sudo apt update
           sudo apt install -y git-core gnupg flex bison build-essential zip curl zlib1g-dev libncurses5-dev x11proto-core-dev libxml2-utils xsltproc unzip python3 bc llvm lld clang lz4 repo
           curl https://raw.githubusercontent.com/akhilnarang/scripts/master/setup/android_build_env.sh | bash -
 
-      - name: Sync Source (AOSPA Way)
+      - name: "⏳ Accurate Sync (vmos0 Strategy)"
         run: |
-          repo init -u https://github.com/AOSPA/android_kernel_manifest -b u-6.6 --depth=1
-          repo sync -c -j$(nproc) --force-sync --no-clone-bundle
+          mkdir kernel && cd kernel
+          repo init -u https://github.com/xprateek/kernel_manifest -b common-android15-6.6 --depth=1
+          repo sync -c -j$(nproc) --force-sync --no-clone-bundle --no-tags --optimized-fetch --prune
+          chmod +x tools/bazel || true
+          chmod +x build/build.sh || true
 
-      - name: Build GKI
+      - name: "🔨 Build GKI (vmos0 Style)"
+        working-directory: kernel
         run: |
-          tools/bazel build --config=fast //common:kernel_aarch64_dist
+          ./tools/bazel build --config=fast //common:kernel_aarch64_dist
 
-      - name: Extract Image
+      - name: "📦 Export Image"
         run: |
           mkdir -p output
-          if [ -d "out/android15-6.6/dist" ]; then
-            cp out/android15-6.6/dist/Image ./output/Image
-          else
-            find out/ -name Image -exec cp {} ./output/Image \;
+          find kernel/out/ -name Image -exec cp {} ./output/Image \;
+          if [ ! -f ./output/Image ]; then
+             find . -name Image -exec cp {} ./output/Image \;
           fi
 
-      - name: Upload Artifact
+      - name: "📤 Upload Artifact"
         uses: actions/upload-artifact@v4
         with:
-          name: GKI-AOSPA-Method
+          name: GKI-vmos0-Method
           path: output/Image
