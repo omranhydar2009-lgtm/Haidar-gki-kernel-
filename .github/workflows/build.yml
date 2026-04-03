@@ -1,27 +1,32 @@
-name: Build-GKI-Android15-6.6-Action
+name: 🏗️ PREBUILT_A15-6.6-OFFICIAL
 on:
   workflow_dispatch:
 
 jobs:
-  build-kernel:
+  Build-Kernel:
     runs-on: ubuntu-latest
     steps:
-      - name: Free Disk Space
-        uses: jlumbroso/free-disk-space@v1.3.1
+      - name: "👨‍🔧 Setup build environment"
+        run: |
+          sudo apt update
+          curl https://raw.githubusercontent.com/akhilnarang/scripts/master/setup/android_build_env.sh | bash -
 
-      - name: Build Android Kernel
-        uses: dabyd64/android-kernel-build-action@v1.1
-        with:
-          kernel-url: https://android.googlesource.com/kernel/common
-          kernel-branch: android15-6.6
-          config: gki_defconfig
-          arch: arm64
-          compiler: clang
-          bazel: true
-          binary: Image
+      - name: "⏳ Clone Repo & Sync"
+        run: |
+          repo init -u https://gitlab.com/xprateek/kernel_manifest -b common-android15-6.6 --depth=1
+          repo sync -c -j$(nproc) --force-sync --no-clone-bundle
 
-      - name: Upload Kernel Image
+      - name: "🛠️ Build with Bazel"
+        run: |
+          tools/bazel build --config=fast //common:kernel_aarch64_dist
+
+      - name: "📦 Extract Image"
+        run: |
+          mkdir -p output
+          cp out/android15-6.6/dist/Image ./output/Image
+
+      - name: "📤 Upload Artifact"
         uses: actions/upload-artifact@v4
         with:
-          name: GKI-Image-A15-6.6
-          path: out/arch/arm64/boot/Image
+          name: Image-Official-A15
+          path: ./output/Image
