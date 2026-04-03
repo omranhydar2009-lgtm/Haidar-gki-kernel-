@@ -6,6 +6,9 @@ jobs:
   Build-Kernel:
     runs-on: ubuntu-latest
     steps:
+      - name: Free Disk Space
+        uses: jlumbroso/free-disk-space@v1.3.1
+
       - name: "👨‍🔧 Setup build environment"
         run: |
           sudo apt update
@@ -14,7 +17,7 @@ jobs:
       - name: "⏳ Clone Repo & Sync"
         run: |
           repo init -u https://gitlab.com/xprateek/kernel_manifest -b common-android15-6.6 --depth=1
-          repo sync -c -j$(nproc) --force-sync --no-clone-bundle
+          repo sync -c -j$(nproc) --force-sync --no-clone-bundle --no-tags --optimized-fetch --prune
 
       - name: "🛠️ Build with Bazel"
         run: |
