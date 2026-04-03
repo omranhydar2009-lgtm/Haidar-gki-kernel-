@@ -1,4 +1,4 @@
-name: 🚀 Phase-3-vmos0-Reverse-Method
+name: 🚀 Phase-4-Official-GKI-Mirror
 on:
   workflow_dispatch:
 
@@ -15,15 +15,16 @@ jobs:
           sudo apt install -y git-core gnupg flex bison build-essential zip curl zlib1g-dev libncurses5-dev x11proto-core-dev libxml2-utils xsltproc unzip python3 bc llvm lld clang lz4 repo
           curl https://raw.githubusercontent.com/akhilnarang/scripts/master/setup/android_build_env.sh | bash -
 
-      - name: "⏳ Accurate Sync (vmos0 Strategy)"
+      - name: "⏳ Sync Source (Public Mirror)"
         run: |
           mkdir kernel && cd kernel
-          repo init -u https://github.com/xprateek/kernel_manifest -b common-android15-6.6 --depth=1
-          repo sync -c -j$(nproc) --force-sync --no-clone-bundle --no-tags --optimized-fetch --prune
+          # استخدام مرآة (Mirror) عامة لا تتطلب صلاحيات
+          repo init -u https://github.com/kernel-build-action/kernel_manifest.git -b common-android15-6.6 --depth=1
+          repo sync -c -j$(nproc) --force-sync --no-clone-bundle --no-tags
+          
           chmod +x tools/bazel || true
-          chmod +x build/build.sh || true
 
-      - name: "🔨 Build GKI (vmos0 Style)"
+      - name: "🔨 Build GKI"
         working-directory: kernel
         run: |
           ./tools/bazel build --config=fast //common:kernel_aarch64_dist
@@ -33,11 +34,12 @@ jobs:
           mkdir -p output
           find kernel/out/ -name Image -exec cp {} ./output/Image \;
           if [ ! -f ./output/Image ]; then
-             find . -name Image -exec cp {} ./output/Image \;
+             echo "Build failed to produce Image"
+             exit 1
           fi
 
       - name: "📤 Upload Artifact"
         uses: actions/upload-artifact@v4
         with:
-          name: GKI-vmos0-Method
+          name: GKI-Phase4-Method
           path: output/Image
