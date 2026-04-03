@@ -1,35 +1,27 @@
-name: Build-Kernel-AOSP-Bazel-Official
+name: Build-GKI-Android15-6.6-Action
 on:
   workflow_dispatch:
 
 jobs:
-  Build-Kernel:
+  build-kernel:
     runs-on: ubuntu-latest
     steps:
       - name: Free Disk Space
         uses: jlumbroso/free-disk-space@v1.3.1
 
-      - name: Setup Build Environment
-        run: |
-          sudo apt update
-          curl https://raw.githubusercontent.com/akhilnarang/scripts/master/setup/android_build_env.sh | bash -
-
-      - name: Repo Init & Sync
-        run: |
-          repo init -u https://gitlab.com/xprateek/kernel_manifest -b common-android15-6.6 --depth=1
-          repo sync -c -j$(nproc)
-
-      - name: Build with Bazel
-        run: |
-          tools/bazel build --config=fast //common:kernel_aarch64_dist
-
-      - name: Export Image
-        run: |
-          mkdir -p output
-          find out/ -name Image -exec cp {} ./output/Image \;
+      - name: Build Android Kernel
+        uses: dabyd64/android-kernel-build-action@v1.1
+        with:
+          kernel-url: https://android.googlesource.com/kernel/common
+          kernel-branch: android15-6.6
+          config: gki_defconfig
+          arch: arm64
+          compiler: clang
+          bazel: true
+          binary: Image
 
       - name: Upload Kernel Image
         uses: actions/upload-artifact@v4
         with:
-          name: Kernel-AOSP-15-6.6-Official
-          path: ./output/Image
+          name: GKI-Image-A15-6.6
+          path: out/arch/arm64/boot/Image
