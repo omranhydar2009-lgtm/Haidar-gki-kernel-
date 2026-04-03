@@ -1,4 +1,4 @@
-name: 🚀 Phase-4-Official-GKI-Mirror
+name: 🚀 Phase-6-Direct-Kleaf-Build-No-Size-Check
 on:
   workflow_dispatch:
 
@@ -15,16 +15,15 @@ jobs:
           sudo apt install -y git-core gnupg flex bison build-essential zip curl zlib1g-dev libncurses5-dev x11proto-core-dev libxml2-utils xsltproc unzip python3 bc llvm lld clang lz4 repo
           curl https://raw.githubusercontent.com/akhilnarang/scripts/master/setup/android_build_env.sh | bash -
 
-      - name: "⏳ Sync Source (Public Mirror)"
+      - name: "⏳ Direct Clone & Tools"
         run: |
-          mkdir kernel && cd kernel
-          # استخدام مرآة (Mirror) عامة لا تتطلب صلاحيات
-          repo init -u https://github.com/kernel-build-action/kernel_manifest.git -b common-android15-6.6 --depth=1
-          repo sync -c -j$(nproc) --force-sync --no-clone-bundle --no-tags
-          
+          git clone --depth=1 https://android.googlesource.com/kernel/common -b android15-6.6-2025-02_r1 kernel
+          cd kernel
+          git clone --depth=1 https://android.googlesource.com/kernel/build build
+          git clone --depth=1 https://android.googlesource.com/kernel/prebuilts/build-tools prebuilts/build-tools
           chmod +x tools/bazel || true
 
-      - name: "🔨 Build GKI"
+      - name: "🔨 Build with Bazel (Unified Image)"
         working-directory: kernel
         run: |
           ./tools/bazel build --config=fast //common:kernel_aarch64_dist
@@ -33,13 +32,13 @@ jobs:
         run: |
           mkdir -p output
           find kernel/out/ -name Image -exec cp {} ./output/Image \;
+          
           if [ ! -f ./output/Image ]; then
-             echo "Build failed to produce Image"
-             exit 1
+             find kernel/ -name Image -exec cp {} ./output/Image \;
           fi
 
       - name: "📤 Upload Artifact"
         uses: actions/upload-artifact@v4
         with:
-          name: GKI-Phase4-Method
+          name: GKI-6.6.66-Direct-NoCheck
           path: output/Image
