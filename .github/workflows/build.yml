@@ -1,4 +1,4 @@
-name: 🚀 Phase-6-Direct-Kleaf-Build-No-Size-Check
+name: 🚀 Phase-6-Direct-Kleaf-Fixed
 on:
   workflow_dispatch:
 
@@ -15,30 +15,31 @@ jobs:
           sudo apt install -y git-core gnupg flex bison build-essential zip curl zlib1g-dev libncurses5-dev x11proto-core-dev libxml2-utils xsltproc unzip python3 bc llvm lld clang lz4 repo
           curl https://raw.githubusercontent.com/akhilnarang/scripts/master/setup/android_build_env.sh | bash -
 
-      - name: "⏳ Direct Clone & Tools"
+      - name: "⏳ Direct Clone & Essential Tools"
         run: |
-          git clone --depth=1 https://android.googlesource.com/kernel/common -b android15-6.6-2025-02_r1 kernel
-          cd kernel
-          git clone --depth=1 https://android.googlesource.com/kernel/build build
+          mkdir kernel_workspace && cd kernel_workspace
+          git clone --depth=1 https://android.googlesource.com/kernel/common -b android15-6.6-2025-02_r1 common
+          git clone --depth=1 https://android.googlesource.com/kernel/build
           git clone --depth=1 https://android.googlesource.com/kernel/prebuilts/build-tools prebuilts/build-tools
-          chmod +x tools/bazel || true
+          git clone --depth=1 https://android.googlesource.com/kernel/prebuilts/bazel/linux-x86_64 prebuilts/bazel/linux-x86_64
+          chmod +x build/bazel.sh
+          ln -s build/bazel.sh bazel
 
-      - name: "🔨 Build with Bazel (Unified Image)"
-        working-directory: kernel
+      - name: "🔨 Build with Bazel"
+        working-directory: kernel_workspace
         run: |
-          ./tools/bazel build --config=fast //common:kernel_aarch64_dist
+          ./bazel build --config=fast //common:kernel_aarch64_dist
 
       - name: "📦 Export Image"
         run: |
           mkdir -p output
-          find kernel/out/ -name Image -exec cp {} ./output/Image \;
-          
+          find kernel_workspace/out/ -name Image -exec cp {} ./output/Image \;
           if [ ! -f ./output/Image ]; then
-             find kernel/ -name Image -exec cp {} ./output/Image \;
+             find kernel_workspace/ -name Image -exec cp {} ./output/Image \;
           fi
 
       - name: "📤 Upload Artifact"
         uses: actions/upload-artifact@v4
         with:
-          name: GKI-6.6.66-Direct-NoCheck
+          name: GKI-6.6.66-Kleaf-Fixed
           path: output/Image
