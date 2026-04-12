@@ -1,4 +1,4 @@
-name: Remote APK Extractor
+name: Remote APK Extractor with Size Check
 on: 
   workflow_dispatch:
 
@@ -8,9 +8,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Install dependencies
-        run: sudo apt-get install wget unzip -y
 
       - name: Advanced Download
         run: |
@@ -22,14 +19,29 @@ jobs:
           
           wget --user-agent="Mozilla/5.0" "$LINK" -O game.zip
 
-      - name: Unzip Everything
+      - name: Check File Size
+        run: |
+          ls -lh game.zip
+          FILE_SIZE=$(stat -c%s game.zip)
+          if [ "$FILE_SIZE" -lt 1000000 ]; then
+            echo "Error: Download failed or file too small."
+            exit 1
+          fi
+
+      - name: Unzip and List Files
         run: |
           mkdir -p extracted
-          unzip -o game.zip -d extracted || echo "Not a zip file"
+          unzip -o game.zip -d extracted
+          find extracted -maxdepth 3
 
       - name: Find and Rename APK
         run: |
-          find extracted -name "*.apk" -exec mv {} ./final_game.apk \;
+          APK_PATH=$(find extracted -name "*.apk" | head -n 1)
+          if [ -z "$APK_PATH" ]; then
+            echo "Error: No APK found."
+            exit 1
+          fi
+          mv "$APK_PATH" ./final_game.apk
 
       - name: Upload Result
         uses: actions/upload-artifact@v4
