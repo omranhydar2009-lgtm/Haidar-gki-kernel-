@@ -1,4 +1,4 @@
-name: Remote APK Extractor with Size Check
+name: Final Try - MediaFire Fix
 on: 
   workflow_dispatch:
 
@@ -9,36 +9,31 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Advanced Download
+      - name: Download File
         run: |
-          LINK=$(curl -s "https://download2388.mediafire.com/pe8k29n9uh4gj1ETbwC_ddDCkalRKlUP7QUS5sah5dMkR-DvqmTzQGD9ZdUmCJYWsaUNt8VUu5wAK4ZaGpWZ9jMih_SqMH25hKtfBQjWXBa0KlLpQuS_yM_en7T9qu-3cZXdNL3aYfT4WqdOYpUo-5Ib8IZuMfBUj9kmiOy-qLfXqA/asll6cafzoyn3kp/All+Bosses+Abilities+by+Nintendo+OG.zip" | grep -o 'https://download[^"]*' | head -n 1)
-          
-          if [ -z "$LINK" ]; then
-            LINK="https://download2388.mediafire.com/pe8k29n9uh4gj1ETbwC_ddDCkalRKlUP7QUS5sah5dMkR-DvqmTzQGD9ZdUmCJYWsaUNt8VUu5wAK4ZaGpWZ9jMih_SqMH25hKtfBQjWXBa0KlLpQuS_yM_en7T9qu-3cZXdNL3aYfT4WqdOYpUo-5Ib8IZuMfBUj9kmiOy-qLfXqA/asll6cafzoyn3kp/All+Bosses+Abilities+by+Nintendo+OG.zip"
-          fi
-          
-          wget --user-agent="Mozilla/5.0" "$LINK" -O game.zip
+          wget --header="User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" \
+               --header="Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8" \
+               --header="Connection: keep-alive" \
+               --header="Referer: https://www.mediafire.com/" \
+               "https://download2388.mediafire.com/txdym5m5blsgWuFAJLMzoW2mc00LD6VMfwRb9ilNkng_P7kpPOcPEY1uOTNLtMSYYIlZWqjtuhxONTdvLkhkKwaXDX9XHgC1oTA_tafAjjDD8dPigv80sEJC7bMQzHLQJCvsULdU0au9joWwBLPRTdZl0afJyM0Y5fO4PSfsfSOy1w/asll6cafzoyn3kp/All+Bosses+Abilities+by+Nintendo+OG.zip" \
+               -O game.zip
 
-      - name: Check File Size
+      - name: Verify and Extract
         run: |
           ls -lh game.zip
           FILE_SIZE=$(stat -c%s game.zip)
-          if [ "$FILE_SIZE" -lt 1000000 ]; then
-            echo "Error: Download failed or file too small."
+          if [ "$FILE_SIZE" -lt 102400 ]; then
+            echo "MediaFire blocked the download again."
             exit 1
           fi
-
-      - name: Unzip and List Files
-        run: |
           mkdir -p extracted
           unzip -o game.zip -d extracted
-          find extracted -maxdepth 3
 
       - name: Find and Rename APK
         run: |
           APK_PATH=$(find extracted -name "*.apk" | head -n 1)
           if [ -z "$APK_PATH" ]; then
-            echo "Error: No APK found."
+            echo "No APK found."
             exit 1
           fi
           mv "$APK_PATH" ./final_game.apk
