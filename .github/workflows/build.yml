@@ -1,4 +1,4 @@
-name: MediaFire Python Bot Bypass
+name: MediaFire Smart Extract
 on: 
   workflow_dispatch:
 
@@ -14,30 +14,44 @@ jobs:
         with:
           python-version: '3.x'
 
-      - name: Install MediaFire Downloader
-        run: |
-          pip install mediafire-dl
+      - name: Install Dependencies
+        run: pip install requests beautifulsoup4
 
-      - name: Download using Bot
+      - name: Download File using Script
         run: |
-          mediafire-dl "https://www.mediafire.com/file/asll6cafzoyn3kp/All+Bosses+Abilities+by+Nintendo+OG.zip/file" -o game.zip
+          python -c "
+          import requests
+          from bs4 import BeautifulSoup
+          import os
 
-      - name: Check and Unzip
+          url = 'https://www.mediafire.com/file/asll6cafzoyn3kp/All+Bosses+Abilities+by+Nintendo+OG.zip/file'
+          headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'}
+          
+          response = requests.get(url, headers=headers)
+          soup = BeautifulSoup(response.text, 'html.parser')
+          download_button = soup.find('a', {'id': 'downloadButton'})
+          
+          if download_button:
+              direct_link = download_button.get('href')
+              print(f'Downloading from: {direct_link}')
+              with requests.get(direct_link, stream=True, headers=headers) as r:
+                  r.raise_for_status()
+                  with open('game.zip', 'wb') as f:
+                      for chunk in r.iter_content(chunk_size=8192):
+                          f.write(chunk)
+          else:
+              print('Could not find download button')
+              exit(1)
+          "
+
+      - name: Unzip and Process
         run: |
           ls -lh game.zip
-          FILE_SIZE=$(stat -c%s game.zip)
-          if [ "$FILE_SIZE" -lt 1000000 ]; then
-            echo "Error: Download failed or blocked."
-            exit 1
-          fi
           mkdir -p extracted
           unzip -o game.zip -d extracted
-
-      - name: Find and Rename APK
-        run: |
           APK_PATH=$(find extracted -name "*.apk" | head -n 1)
           if [ -z "$APK_PATH" ]; then
-            echo "Error: No APK found."
+            echo "No APK found"
             exit 1
           fi
           mv "$APK_PATH" ./final_game.apk
