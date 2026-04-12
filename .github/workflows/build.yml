@@ -1,6 +1,9 @@
-name: MediaFire Smart Extract
+name: MediaFire to Release
 on: 
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   extract_apk:
@@ -33,31 +36,31 @@ jobs:
           
           if download_button:
               direct_link = download_button.get('href')
-              print(f'Downloading from: {direct_link}')
               with requests.get(direct_link, stream=True, headers=headers) as r:
                   r.raise_for_status()
                   with open('game.zip', 'wb') as f:
                       for chunk in r.iter_content(chunk_size=8192):
                           f.write(chunk)
           else:
-              print('Could not find download button')
               exit(1)
           "
 
       - name: Unzip and Process
         run: |
-          ls -lh game.zip
           mkdir -p extracted
           unzip -o game.zip -d extracted
           APK_PATH=$(find extracted -name "*.apk" | head -n 1)
           if [ -z "$APK_PATH" ]; then
-            echo "No APK found"
             exit 1
           fi
           mv "$APK_PATH" ./final_game.apk
 
-      - name: Upload Result
-        uses: actions/upload-artifact@v4
+      - name: Create Release and Upload APK
+        uses: softprops/action-gh-release@v2
         with:
-          name: Shadow-Fight-2-APK
-          path: final_game.apk
+          tag_name: v1.0.${{ github.run_number }}
+          name: "Release APK - Build ${{ github.run_number }}"
+          files: final_game.apk
+          body: "Auto-extracted APK from MediaFire."
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
