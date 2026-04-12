@@ -1,4 +1,4 @@
-name: Final Try - MediaFire Fix
+name: Ultimate MediaFire Bypass
 on: 
   workflow_dispatch:
 
@@ -9,21 +9,29 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Download File
+      - name: Install yt-dlp
         run: |
-          wget --header="User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" \
-               --header="Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8" \
-               --header="Connection: keep-alive" \
-               --header="Referer: https://www.mediafire.com/" \
-               "https://download2388.mediafire.com/txdym5m5blsgWuFAJLMzoW2mc00LD6VMfwRb9ilNkng_P7kpPOcPEY1uOTNLtMSYYIlZWqjtuhxONTdvLkhkKwaXDX9XHgC1oTA_tafAjjDD8dPigv80sEJC7bMQzHLQJCvsULdU0au9joWwBLPRTdZl0afJyM0Y5fO4PSfsfSOy1w/asll6cafzoyn3kp/All+Bosses+Abilities+by+Nintendo+OG.zip" \
-               -O game.zip
+          sudo curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp
+          sudo chmod a+rx /usr/local/bin/yt-dlp
 
-      - name: Verify and Extract
+      - name: Smart Download
+        run: |
+          DIRECT_URL=$(yt-dlp --get-url "https://www.mediafire.com/file/asll6cafzoyn3kp/All+Bosses+Abilities+by+Nintendo+OG.zip/file" || echo "")
+          
+          if [ -z "$DIRECT_URL" ]; then
+            DIRECT_URL="https://download2388.mediafire.com/txdym5m5blsgWuFAJLMzoW2mc00LD6VMfwRb9ilNkng_P7kpPOcPEY1uOTNLtMSYYIlZWqjtuhxONTdvLkhkKwaXDX9XHgC1oTA_tafAjjDD8dPigv80sEJC7bMQzHLQJCvsULdU0au9joWwBLPRTdZl0afJyM0Y5fO4PSfsfSOy1w/asll6cafzoyn3kp/All+Bosses+Abilities+by+Nintendo+OG.zip"
+          fi
+
+          wget --user-agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36" \
+               --header="Referer: https://www.mediafire.com/" \
+               "$DIRECT_URL" -O game.zip
+
+      - name: Check and Unzip
         run: |
           ls -lh game.zip
           FILE_SIZE=$(stat -c%s game.zip)
-          if [ "$FILE_SIZE" -lt 102400 ]; then
-            echo "MediaFire blocked the download again."
+          if [ "$FILE_SIZE" -lt 1000000 ]; then
+            echo "Failed: MediaFire still blocking."
             exit 1
           fi
           mkdir -p extracted
