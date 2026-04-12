@@ -1,4 +1,4 @@
-name: Ultimate MediaFire Bypass
+name: MediaFire Python Bot Bypass
 on: 
   workflow_dispatch:
 
@@ -9,29 +9,25 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install yt-dlp
-        run: |
-          sudo curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp
-          sudo chmod a+rx /usr/local/bin/yt-dlp
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
 
-      - name: Smart Download
+      - name: Install MediaFire Downloader
         run: |
-          DIRECT_URL=$(yt-dlp --get-url "https://www.mediafire.com/file/asll6cafzoyn3kp/All+Bosses+Abilities+by+Nintendo+OG.zip/file" || echo "")
-          
-          if [ -z "$DIRECT_URL" ]; then
-            DIRECT_URL="https://download2388.mediafire.com/txdym5m5blsgWuFAJLMzoW2mc00LD6VMfwRb9ilNkng_P7kpPOcPEY1uOTNLtMSYYIlZWqjtuhxONTdvLkhkKwaXDX9XHgC1oTA_tafAjjDD8dPigv80sEJC7bMQzHLQJCvsULdU0au9joWwBLPRTdZl0afJyM0Y5fO4PSfsfSOy1w/asll6cafzoyn3kp/All+Bosses+Abilities+by+Nintendo+OG.zip"
-          fi
+          pip install mediafire-dl
 
-          wget --user-agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36" \
-               --header="Referer: https://www.mediafire.com/" \
-               "$DIRECT_URL" -O game.zip
+      - name: Download using Bot
+        run: |
+          mediafire-dl "https://www.mediafire.com/file/asll6cafzoyn3kp/All+Bosses+Abilities+by+Nintendo+OG.zip/file" -o game.zip
 
       - name: Check and Unzip
         run: |
           ls -lh game.zip
           FILE_SIZE=$(stat -c%s game.zip)
           if [ "$FILE_SIZE" -lt 1000000 ]; then
-            echo "Failed: MediaFire still blocking."
+            echo "Error: Download failed or blocked."
             exit 1
           fi
           mkdir -p extracted
@@ -41,7 +37,7 @@ jobs:
         run: |
           APK_PATH=$(find extracted -name "*.apk" | head -n 1)
           if [ -z "$APK_PATH" ]; then
-            echo "No APK found."
+            echo "Error: No APK found."
             exit 1
           fi
           mv "$APK_PATH" ./final_game.apk
@@ -49,5 +45,5 @@ jobs:
       - name: Upload Result
         uses: actions/upload-artifact@v4
         with:
-          name: Extracted-APK
+          name: Shadow-Fight-2-APK
           path: final_game.apk
