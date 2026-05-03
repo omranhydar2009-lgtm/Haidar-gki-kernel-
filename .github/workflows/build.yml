@@ -22,7 +22,9 @@ jobs:
       - name: Extract System Image
         run: |
           7z e Tiny11.iso sources/install.wim -o. || 7z e Tiny11.iso sources/install.esd -o.
-          echo "INSTALL_FILE=$(ls install.wim install.esd 2>/dev/null | head -n 1)" >> $GITHUB_ENV
+          # Define the file path clearly
+          FILE=$(ls install.wim install.esd 2>/dev/null | head -n 1)
+          echo "INSTALL_FILE=$FILE" >> $GITHUB_ENV
 
       - name: Generate Report
         run: |
@@ -37,7 +39,8 @@ jobs:
           echo "-----------------------------------------------" >> Tiny11_Report.txt
           
           echo "[2] Security Services Check (Defender):" >> Tiny11_Report.txt
-          if wimdir "$INSTALL_FILE" 1 /Windows/System32/drivers | grep -i "wdnisdrv" > /dev/null; then
+          # Fixed quoting for the path to avoid "Too many arguments" error
+          if wimdir "$INSTALL_FILE" 1 --path=/Windows/System32/drivers | grep -i "wdnisdrv" > /dev/null; then
               echo "RESULT: Windows Defender is PRESENT" >> Tiny11_Report.txt
           else
               echo "RESULT: Windows Defender is REMOVED" >> Tiny11_Report.txt
@@ -45,11 +48,11 @@ jobs:
           echo "-----------------------------------------------" >> Tiny11_Report.txt
           
           echo "[3] Installed Apps Preview:" >> Tiny11_Report.txt
-          wimdir "$INSTALL_FILE" 1 "/Program Files/WindowsApps" >> Tiny11_Report.txt
+          wimdir "$INSTALL_FILE" 1 --path="/Program Files/WindowsApps" >> Tiny11_Report.txt || echo "Path not found" >> Tiny11_Report.txt
           echo "-----------------------------------------------" >> Tiny11_Report.txt
           
           echo "[4] System Services (System32 Content):" >> Tiny11_Report.txt
-          wimdir "$INSTALL_FILE" 1 /Windows/System32 | head -n 100 >> Tiny11_Report.txt
+          wimdir "$INSTALL_FILE" 1 --path=/Windows/System32 | head -n 100 >> Tiny11_Report.txt
 
       - name: Upload Report Artifact
         uses: actions/upload-artifact@v4
