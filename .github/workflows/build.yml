@@ -1,66 +1,58 @@
-name: MediaFire to Release
-on: 
+name: Tiny11 ISO Analysis
+
+on:
   workflow_dispatch:
 
-permissions:
-  contents: write
-
 jobs:
-  extract_apk:
+  analyze:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.x'
-
       - name: Install Dependencies
-        run: pip install requests beautifulsoup4
-
-      - name: Download File using Script
         run: |
-          python -c "
-          import requests
-          from bs4 import BeautifulSoup
-          import os
+          sudo apt-get update
+          sudo apt-get install -y wimtools p7zip-full grep wget
 
-          url = 'https://www.mediafire.com/file/asll6cafzoyn3kp/All+Bosses+Abilities+by+Nintendo+OG.zip/file'
-          headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'}
-          
-          response = requests.get(url, headers=headers)
-          soup = BeautifulSoup(response.text, 'html.parser')
-          download_button = soup.find('a', {'id': 'downloadButton'})
-          
-          if download_button:
-              direct_link = download_button.get('href')
-              with requests.get(direct_link, stream=True, headers=headers) as r:
-                  r.raise_for_status()
-                  with open('game.zip', 'wb') as f:
-                      for chunk in r.iter_content(chunk_size=8192):
-                          f.write(chunk)
-          else:
-              exit(1)
-          "
-
-      - name: Unzip and Process
+      - name: Download ISO
         run: |
-          mkdir -p extracted
-          unzip -o game.zip -d extracted
-          APK_PATH=$(find extracted -name "*.apk" | head -n 1)
-          if [ -z "$APK_PATH" ]; then
-            exit 1
+          wget -O Tiny11.iso "https://archive.org/download/tiny11-25h2-home-pro/Tiny11%20Home%2025H2%20EN.iso"
+
+      - name: Extract System Image
+        run: |
+          7z e Tiny11.iso sources/install.wim -o. || 7z e Tiny11.iso sources/install.esd -o.
+          echo "INSTALL_FILE=$(ls install.wim install.esd 2>/dev/null | head -n 1)" >> $GITHUB_ENV
+
+      - name: Generate Report
+        run: |
+          echo "===============================================" > Tiny11_Report.txt
+          echo "       WINDOWS ISO ANALYSIS REPORT            " >> Tiny11_Report.txt
+          echo "===============================================" >> Tiny11_Report.txt
+          echo "Analysis Date: $(date)" >> Tiny11_Report.txt
+          echo "" >> Tiny11_Report.txt
+          
+          echo "[1] Windows Edition Info:" >> Tiny11_Report.txt
+          wiminfo "$INSTALL_FILE" >> Tiny11_Report.txt
+          echo "-----------------------------------------------" >> Tiny11_Report.txt
+          
+          echo "[2] Security Services Check (Defender):" >> Tiny11_Report.txt
+          if wimdir "$INSTALL_FILE" 1 /Windows/System32/drivers | grep -i "wdnisdrv" > /dev/null; then
+              echo "RESULT: Windows Defender is PRESENT" >> Tiny11_Report.txt
+          else
+              echo "RESULT: Windows Defender is REMOVED" >> Tiny11_Report.txt
           fi
-          mv "$APK_PATH" ./final_game.apk
+          echo "-----------------------------------------------" >> Tiny11_Report.txt
+          
+          echo "[3] Installed Apps Preview:" >> Tiny11_Report.txt
+          wimdir "$INSTALL_FILE" 1 "/Program Files/WindowsApps" >> Tiny11_Report.txt
+          echo "-----------------------------------------------" >> Tiny11_Report.txt
+          
+          echo "[4] System Services (System32 Content):" >> Tiny11_Report.txt
+          wimdir "$INSTALL_FILE" 1 /Windows/System32 | head -n 100 >> Tiny11_Report.txt
 
-      - name: Create Release and Upload APK
-        uses: softprops/action-gh-release@v2
+      - name: Upload Report Artifact
+        uses: actions/upload-artifact@v4
         with:
-          tag_name: v1.0.${{ github.run_number }}
-          name: "Release APK - Build ${{ github.run_number }}"
-          files: final_game.apk
-          body: "Auto-extracted APK from MediaFire."
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          name: tiny11-analysis-report
+          path: Tiny11_Report.txt
