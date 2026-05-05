@@ -1,4 +1,4 @@
-name: Upload AMD Driver to Release
+name: AMD Driver Smart Upload
 
 on:
   workflow_dispatch:
@@ -7,26 +7,55 @@ permissions:
   contents: write
 
 jobs:
-  download_and_upload:
+  build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Repository
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Download Driver File
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install Dependencies
+        run: pip install requests beautifulsoup4
+
+      - name: Scrape and Download AMD Driver
         run: |
-          URL="https://drivers.amd.com/drivers/prographics/amd-software-pro-edition-25.q4-win11-vega-polaris.exe"
-          wget --user-agent="Mozilla/5.0" -O amd-driver.exe "$URL"
+          python -c "
+          import requests
+          import os
+
+          target_url = 'https://drivers.amd.com/drivers/prographics/amd-software-pro-edition-25.q4-win11-vega-polaris.exe'
+          
+          headers = {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+              'Referer': 'https://www.amd.com/'
+          }
+
+          with requests.get(target_url, stream=True, headers=headers) as r:
+              if r.status_code == 200:
+                  with open('amd-driver.exe', 'wb') as f:
+                      for chunk in r.iter_content(chunk_size=8192):
+                          f.write(chunk)
+              else:
+                  exit(1)
+          "
+
+      - name: Verify File Size
+        run: |
+          FILE_SIZE=$(stat -c%s "amd-driver.exe")
+          if [ $FILE_SIZE -lt 10000000 ]; then
+            exit 1
+          fi
 
       - name: Create GitHub Release
-        id: create_release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v25.Q4-Driver
+          tag_name: v25.Q4
           name: "AMD Software Pro Edition 25.Q4"
-          body: "Automated upload of AMD Vega/Polaris Driver."
-          draft: false
-          prerelease: false
+          body: "Automated direct upload of AMD Software Pro Edition."
           files: amd-driver.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
