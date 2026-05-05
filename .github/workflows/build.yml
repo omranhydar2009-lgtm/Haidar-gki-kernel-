@@ -1,61 +1,32 @@
-name: Tiny11 ISO Analysis
+name: Upload AMD Driver to Release
 
 on:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
-  analyze:
+  download_and_upload:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Install Dependencies
+      - name: Download Driver File
         run: |
-          sudo apt-get update
-          sudo apt-get install -y wimtools p7zip-full grep wget
+          URL="https://drivers.amd.com/drivers/prographics/amd-software-pro-edition-25.q4-win11-vega-polaris.exe"
+          wget --user-agent="Mozilla/5.0" -O amd-driver.exe "$URL"
 
-      - name: Download ISO
-        run: |
-          wget -O Tiny11.iso "https://archive.org/download/tiny11-25h2-home-pro/Tiny11%20Home%2025H2%20EN.iso"
-
-      - name: Extract System Image
-        run: |
-          7z e Tiny11.iso sources/install.wim -o. || 7z e Tiny11.iso sources/install.esd -o.
-          # Define the file path clearly
-          FILE=$(ls install.wim install.esd 2>/dev/null | head -n 1)
-          echo "INSTALL_FILE=$FILE" >> $GITHUB_ENV
-
-      - name: Generate Report
-        run: |
-          echo "===============================================" > Tiny11_Report.txt
-          echo "       WINDOWS ISO ANALYSIS REPORT            " >> Tiny11_Report.txt
-          echo "===============================================" >> Tiny11_Report.txt
-          echo "Analysis Date: $(date)" >> Tiny11_Report.txt
-          echo "" >> Tiny11_Report.txt
-          
-          echo "[1] Windows Edition Info:" >> Tiny11_Report.txt
-          wiminfo "$INSTALL_FILE" >> Tiny11_Report.txt
-          echo "-----------------------------------------------" >> Tiny11_Report.txt
-          
-          echo "[2] Security Services Check (Defender):" >> Tiny11_Report.txt
-          # Fixed quoting for the path to avoid "Too many arguments" error
-          if wimdir "$INSTALL_FILE" 1 --path=/Windows/System32/drivers | grep -i "wdnisdrv" > /dev/null; then
-              echo "RESULT: Windows Defender is PRESENT" >> Tiny11_Report.txt
-          else
-              echo "RESULT: Windows Defender is REMOVED" >> Tiny11_Report.txt
-          fi
-          echo "-----------------------------------------------" >> Tiny11_Report.txt
-          
-          echo "[3] Installed Apps Preview:" >> Tiny11_Report.txt
-          wimdir "$INSTALL_FILE" 1 --path="/Program Files/WindowsApps" >> Tiny11_Report.txt || echo "Path not found" >> Tiny11_Report.txt
-          echo "-----------------------------------------------" >> Tiny11_Report.txt
-          
-          echo "[4] System Services (System32 Content):" >> Tiny11_Report.txt
-          wimdir "$INSTALL_FILE" 1 --path=/Windows/System32 | head -n 100 >> Tiny11_Report.txt
-
-      - name: Upload Report Artifact
-        uses: actions/upload-artifact@v4
+      - name: Create GitHub Release
+        id: create_release
+        uses: softprops/action-gh-release@v2
         with:
-          name: tiny11-analysis-report
-          path: Tiny11_Report.txt
+          tag_name: v25.Q4-Driver
+          name: "AMD Software Pro Edition 25.Q4"
+          body: "Automated upload of AMD Vega/Polaris Driver."
+          draft: false
+          prerelease: false
+          files: amd-driver.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
