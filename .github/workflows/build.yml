@@ -25,7 +25,7 @@ jobs:
         run: |
           python -c "
           import requests
-          target_url = 'https://ftp.hp.com/pub/softpaq/sp151001-151500/sp151198.exe'
+          target_url = 'https://ftp.hp.com/pub/softpaq/sp155001-155500/sp155151.exe'
           headers = {
               'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
           }
@@ -35,7 +35,6 @@ jobs:
                       for chunk in r.iter_content(chunk_size=8192):
                           f.write(chunk)
               else:
-                  print(f'Error: {r.status_code}')
                   exit(1)
           "
 
@@ -49,9 +48,9 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: HP-SP151198
-          name: "HP Driver SoftPaq SP151198"
-          body: "Automated upload of HP Driver from official FTP."
+          tag_name: HP-SP155151
+          name: "HP Driver SoftPaq SP155151"
+          body: "Automated upload of HP Driver sp155151."
           files: hp-driver.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
