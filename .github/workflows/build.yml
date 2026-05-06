@@ -1,4 +1,4 @@
-name: HP Driver Upload to Release
+name: Java JDK Upload to Release
 
 on:
   workflow_dispatch:
@@ -21,17 +21,17 @@ jobs:
       - name: Install Dependencies
         run: pip install requests
 
-      - name: Download HP Driver
+      - name: Download JDK
         run: |
           python -c "
           import requests
-          target_url = 'https://ftp.hp.com/pub/softpaq/sp153001-153500/sp153200.exe'
+          target_url = 'https://download.oracle.com/java/26/latest/jdk-26_windows-x64_bin.exe'
           headers = {
               'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
           }
           with requests.get(target_url, stream=True, headers=headers) as r:
               if r.status_code == 200:
-                  with open('hp-driver.exe', 'wb') as f:
+                  with open('jdk-26_windows-x64.exe', 'wb') as f:
                       for chunk in r.iter_content(chunk_size=8192):
                           f.write(chunk)
               else:
@@ -40,17 +40,17 @@ jobs:
 
       - name: Verify Size
         run: |
-          FILE_SIZE=$(stat -c%s "hp-driver.exe")
-          if [ $FILE_SIZE -lt 1000000 ]; then
+          FILE_SIZE=$(stat -c%s "jdk-26_windows-x64.exe")
+          if [ $FILE_SIZE -lt 10000000 ]; then
             exit 1
           fi
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: HP-SP153200
-          name: "HP Driver SoftPaq SP153200"
-          body: "Automated upload of HP Driver sp153200."
-          files: hp-driver.exe
+          tag_name: JDK-26-Latest
+          name: "Oracle JDK 26 Windows x64"
+          body: "Automated upload of the latest Oracle JDK 26."
+          files: jdk-26_windows-x64.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
