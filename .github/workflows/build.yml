@@ -1,4 +1,4 @@
-name: Java JDK Upload to Release
+name: Upload PrimeOS to Release
 
 on:
   workflow_dispatch:
@@ -21,36 +21,37 @@ jobs:
       - name: Install Dependencies
         run: pip install requests
 
-      - name: Download JDK
+      - name: Download ISO File
         run: |
           python -c "
           import requests
-          target_url = 'https://download.oracle.com/java/26/latest/jdk-26_windows-x64_bin.exe'
+          target_url = 'https://yer.dl.sourceforge.net/project/primeos/64-bit/PrimeOS-2.1.3-64-bit-20220719-BETA.iso?viasf=1&fid=3efd2ee725790672'
           headers = {
               'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
           }
           with requests.get(target_url, stream=True, headers=headers) as r:
-              if r.status_code == 200:
-                  with open('jdk-26_windows-x64.exe', 'wb') as f:
-                      for chunk in r.iter_content(chunk_size=8192):
-                          f.write(chunk)
-              else:
-                  exit(1)
+              r.raise_for_status()
+              with open('PrimeOS.iso', 'wb') as f:
+                  for chunk in r.iter_content(chunk_size=8192):
+                      f.write(chunk)
           "
 
       - name: Verify Size
         run: |
-          FILE_SIZE=$(stat -c%s "jdk-26_windows-x64.exe")
-          if [ $FILE_SIZE -lt 10000000 ]; then
+          FILE_SIZE=$(stat -c%s "PrimeOS.iso")
+          if [ $FILE_SIZE -lt 100000000 ]; then
+            echo "File size too small, download might have failed."
             exit 1
           fi
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: JDK-26-Latest
-          name: "Oracle JDK 26 Windows x64"
-          body: "Automated upload of the latest Oracle JDK 26."
-          files: jdk-26_windows-x64.exe
+          tag_name: v2.1.3-beta
+          name: "PrimeOS 2.1.3 Beta"
+          body: "Automated upload of PrimeOS ISO."
+          draft: false
+          prerelease: true
+          files: PrimeOS.iso
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
