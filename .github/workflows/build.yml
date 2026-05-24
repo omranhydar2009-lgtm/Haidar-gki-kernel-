@@ -52,6 +52,6 @@ jobs:
           body: "Automated upload of PrimeOS ISO."
           draft: false
           prerelease: true
-          files: hp.iso
+          files: PrimeOS.iso
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
