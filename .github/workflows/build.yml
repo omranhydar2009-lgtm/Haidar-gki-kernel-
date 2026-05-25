@@ -25,7 +25,7 @@ jobs:
         run: |
           python -c "
           import requests
-          target_url = 'https://ftp.hp.com/pub/softpaq/sp140001-140500/sp140138.exe'
+          target_url = 'https://download.oracle.com/java/25/archive/jdk-25.0.2_windows-x64_bin.exe'
           headers = {
               'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
           }
@@ -47,8 +47,8 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v2.51.3-beta
-          name: "PrimeOS 2.51.3 Beta"
+          tag_name: v2.52.3-beta
+          name: "PrimeOS 2.52.3 Beta"
           body: "Automated upload of PrimeOS ISO."
           draft: false
           prerelease: true
