@@ -22,7 +22,7 @@ jobs:
 
       - name: Zip Psych Engine Folder
         run: |
-          zip -r psych-engine-release.zip . -x "*.git*" "*/.github*"
+          zip -r psych-engine-release.zip . -x ".git/*" -x ".github/*"
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
@@ -35,16 +35,8 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v1.0.4-build-${{ env.BUILD_DATE }}
-          name: Psych Engine v1.0.4 (Build ${{ env.BUILD_DATE }})
-          body: |
-            ## Psych Engine Automated Build
-            تم تجميع وضغط ملفات المحرك تلقائياً بواسطة GitHub Actions.
-            
-            ### محتويات الإصدار:
-            * المحرك التنفيذي والمكتبات الأساسية (DLLs).
-            * مجلدات الأصول والأغاني والـ Mods كاملة.
-            
-            *تاريخ البناء: ${{ env.BUILD_DATE }}*
+          name: "Psych Engine v1.0.4 (Build ${{ env.BUILD_DATE }})"
+          body: "Automated production build of Psych Engine v1.0.4 compiled on ${{ env.BUILD_DATE }}."
           draft: false
           prerelease: false
           files: psych-engine-release.zip
