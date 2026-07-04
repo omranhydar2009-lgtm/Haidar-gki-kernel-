@@ -33,7 +33,6 @@ jobs:
         haxelib install flixel
         haxelib run lime setup
 
-    # خطوة اختيارية لمعاينة المجلدات إذا فشل البناء مجدداً
     - name: List Files
       run: |
         echo "=== Current Directory Content ==="
@@ -43,28 +42,33 @@ jobs:
 
     - name: Compile Game
       run: |
-        # البحث عن المجلد الذي يحتوي على ملف المشروع والدخول إليه تلقائياً
-        PROJECT_DIR=$(dirname $(find . -name "Project.xml" -o -name "project.xml" | head -n 1))
+        PROJECT_FILE=$(find . -name "Project.xml" -o -name "project.xml" | head -n 1)
+        
+        if [ -z "$PROJECT_FILE" ]; then
+          echo "ERROR: Project.xml not found! Make sure your game files are in this branch."
+          exit 1
+        fi
+        
+        PROJECT_DIR=$(dirname "$PROJECT_FILE")
         echo "Found project in: $PROJECT_DIR"
         cd "$PROJECT_DIR"
         haxelib run lime build linux -release
 
     - name: Zip Psych Engine Release
       run: |
-        # البحث عن مجلد البناء الناتج وضغطه
-        # افتراضياً Lime تخرج الناتج في export/release/linux/bin أو داخل مجلد المشروع
-        PROJECT_DIR=$(dirname $(find . -name "Project.xml" -o -name "project.xml" | head -n 1))
-        
-        if [ -d "$PROJECT_DIR/export/release/linux/bin" ]; then
-          cd "$PROJECT_DIR/export/release/linux/bin"
-        elif [ -d "game_folder/PsychEngine" ]; then
-          cd game_folder/PsychEngine
+        PROJECT_FILE=$(find . -name "Project.xml" -o -name "project.xml" | head -n 1)
+        if [ -n "$PROJECT_FILE" ]; then
+          PROJECT_DIR=$(dirname "$PROJECT_FILE")
+          if [ -d "$PROJECT_DIR/export/release/linux/bin" ]; then
+            cd "$PROJECT_DIR/export/release/linux/bin"
+          else
+            cd "$PROJECT_DIR"
+          fi
+          zip -r "$GITHUB_WORKSPACE/psych-engine-release.zip" ./*
         else
-          # إذا لم يجد المسارات السابقة، سيقوم بضغط مجلد المشروع بالكامل كحل احتياطي
-          cd "$PROJECT_DIR"
+          echo "No project to zip."
+          exit 1
         fi
-        
-        zip -r "$GITHUB_WORKSPACE/psych-engine-release.zip" ./*
 
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
