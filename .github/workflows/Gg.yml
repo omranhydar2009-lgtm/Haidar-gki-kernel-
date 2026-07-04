@@ -12,8 +12,16 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout Repository
+    - name: Checkout Current Repository
       uses: actions/checkout@v4
+
+    # الخطة الجديدة: جلب ملفات اللعبة مباشرة من مستودعها الأصلي
+    - name: Clone Psych Engine Source
+      run: |
+        # استبدل الرابط أدناه برابط مستودع اللعبة الصحيح الخاص بك
+        git clone --depth 1 https://github.com/omranhydar2009-lgtm/PsychEngine.git game_project
+        # ملاحظة: إذا كان المستودع الخاص باللعبة هو نفسه Haidar-gki-kernel- ولكن على فرع آخر (مثلاً dev)، استبدل الأمر بـ:
+        # git clone --depth 1 -b اسم_الفرع https://github.com/omranhydar2009-lgtm/Haidar-gki-kernel-.git game_project
 
     - name: Setup Haxe
       uses: krdlab/setup-haxe@v1
@@ -33,42 +41,19 @@ jobs:
         haxelib install flixel
         haxelib run lime setup
 
-    - name: List Files
-      run: |
-        echo "=== Current Directory Content ==="
-        ls -la
-        echo "=== Searching for Project.xml ==="
-        find . -name "Project.xml" -o -name "project.xml"
-
     - name: Compile Game
       run: |
-        PROJECT_FILE=$(find . -name "Project.xml" -o -name "project.xml" | head -n 1)
-        
-        if [ -z "$PROJECT_FILE" ]; then
-          echo "ERROR: Project.xml not found! Make sure your game files are in this branch."
-          exit 1
-        fi
-        
-        PROJECT_DIR=$(dirname "$PROJECT_FILE")
-        echo "Found project in: $PROJECT_DIR"
-        cd "$PROJECT_DIR"
+        cd game_project
         haxelib run lime build linux -release
 
     - name: Zip Psych Engine Release
       run: |
-        PROJECT_FILE=$(find . -name "Project.xml" -o -name "project.xml" | head -n 1)
-        if [ -n "$PROJECT_FILE" ]; then
-          PROJECT_DIR=$(dirname "$PROJECT_FILE")
-          if [ -d "$PROJECT_DIR/export/release/linux/bin" ]; then
-            cd "$PROJECT_DIR/export/release/linux/bin"
-          else
-            cd "$PROJECT_DIR"
-          fi
-          zip -r "$GITHUB_WORKSPACE/psych-engine-release.zip" ./*
+        if [ -d "game_project/export/release/linux/bin" ]; then
+          cd game_project/export/release/linux/bin
         else
-          echo "No project to zip."
-          exit 1
+          cd game_project
         fi
+        zip -r "$GITHUB_WORKSPACE/psych-engine-release.zip" ./*
 
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
