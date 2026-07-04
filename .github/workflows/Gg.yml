@@ -1,99 +1,42 @@
-name: Check FydeOS AMD Firmware Compatibility
+name: List Game Files and Export to TXT
 
 on:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
-  check-amd-support:
-    runs-on: ubuntu-latest
-
+  inspect:
+    runs-on: windows-latest
     steps:
-      - name: Install System Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y p7zip-full squashfs-tools udev fdisk unzip
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Download and Unzip FydeOS Image
+      - name: Download Psych Engine 1.0.4
         run: |
-          IMAGE_URL="https://download.fydeos.io/v22.1/FydeOS_for_PC_apu_v22.1-io.bin.zip"
-          
-          echo "Downloading FydeOS zip package..."
-          curl -L -o fydeos_package.zip "$IMAGE_URL"
-          
-          echo "Extracting ZIP archive..."
-          unzip fydeos_package.zip
-          
-          # Find the extracted .bin or .img file and rename it for consistency
-          EXTRACTED_FILE=$(ls | grep -E "\.(bin|img)$" | head -n 1)
-          if [ -z "$EXTRACTED_FILE" ]; then
-            echo "Error: No raw image or bin file found after unzipping!"
-            ls -la
-            exit 1
-          fi
-          
-          echo "Found extracted image: $EXTRACTED_FILE"
-          mv "$EXTRACTED_FILE" fydeos.img
+          curl -L -o game.zip "https://github.com/ShadowMario/FNF-PsychEngine/releases/download/1.0.4/PsychEngine-Windows64.zip"
 
-      - name: Analyze Partition Layout and Mount RootFS
+      - name: Extract Game
         run: |
-          echo "=== Displaying Image Partition Table ==="
-          /sbin/fdisk -l fydeos.img
-          
-          echo "Mapping image loops..."
-          sudo losetup -fP fydeos.img
-          
-          # Find the mapped loop device name (typically /dev/loop0)
-          LOOP_DEV=$(losetup -j fydeos.img | cut -d':' -f1)
-          echo "Image mapped to device: $LOOP_DEV"
-          
-          # Create a mount directory and mount the root partition (try loopXp3 or search for ext4)
-          mkdir -p ./rootfs
-          echo "Attempting to mount ROOT-A partition..."
-          sudo mount -o ro "${LOOP_DEV}p3" ./rootfs || sudo mount -o ro "${LOOP_DEV}p5" ./rootfs
-          
-      - name: Verify AMD GPU Firmware Files
+          powershell Expand-Archive -Path game.zip -DestinationPath game_folder
+
+      - name: Generate Directory Tree and Save to TXT
         run: |
-          FIRMWARE_DIR="./rootfs/lib/firmware/amdgpu"
-          
-          echo "=== Checking Directory Structure ==="
-          if [ -d "$FIRMWARE_DIR" ]; then
-            echo "Success: amdgpu firmware directory found at $FIRMWARE_DIR"
-            echo "Listing available firmware binaries..."
-            ls -la "$FIRMWARE_DIR"
-          else
-            echo "Error: amdgpu firmware directory not found in the standard path!"
-            echo "Searching raw system paths for any 'lexa' or 'polaris12' binaries..."
-            find ./rootfs -name "*lexa*" -o -name "*polaris12*"
-            exit 1
-          fi
+          cd game_folder
+          echo "=== FNF PSYCH ENGINE 1.0.4 DIRECTORY STRUCTURE ===" > ../game_structure.txt
+          echo "Generated on: $(Get-Date)" >> ../game_structure.txt
+          echo "------------------------------------------------" >> ../game_structure.txt
+          Get-ChildItem -Recurse | Select-Object FullName, Length | Format-Table -AutoSize >> ../game_structure.txt
 
-          echo "=== Searching Specific Binaries for Radeon Pro WX 3100 (Lexa/Polaris12) ==="
-          # Check for essential microcodes needed to initialize the GPU pipeline
-          CRITICAL_FILES=("lexa_ce.bin" "lexa_me.bin" "lexa_pfp.bin" "lexa_rlc.bin" "lexa_smc.bin" "polaris12_k_smc.bin" "polaris12_smc.bin")
-          
-          MISSING_COUNT=0
-          for file in "${CRITICAL_FILES[@]}"; do
-            if [ -f "$FIRMWARE_DIR/$file" ]; then
-              echo "[FOUND] -> $file"
-            else
-              echo "[MISSING] -> $file"
-              MISSING_COUNT=$((MISSING_COUNT + 1))
-            fi
-          done
-
-          echo "=== Final Compatibility Verdict ==="
-          if [ $MISSING_COUNT -eq 0 ]; then
-            echo "Verification PASSED! All necessary firmware binaries for your WX 3100 GPU are present in this kernel build."
-          elif [ $MISSING_COUNT -lt ${#CRITICAL_FILES[@]} ]; then
-            echo "Verification PARTIAL! Some binaries are missing, but core Lexa drivers are present. It might fallback gracefully."
-          else
-            echo "Verification FAILED! No matching firmware microcode found for Lexa/Polaris12 architectures."
-            exit 1
-          fi
-
-      - name: Cleanup Mappings
-        if: always()
-        run: |
-          echo "Unmounting rootfs and clearing loop devices..."
-          sudo umount ./rootfs || true
-          sudo losetup -D || true
+      - name: Create Release with Structure TXT
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.4-inspection
+          name: "Psych Engine 1.0.4 Structure Inspection"
+          body: "Psych Engine 1.0.4 File Structure"
+          draft: false
+          prerelease: false
+          files: game_structure.txt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
