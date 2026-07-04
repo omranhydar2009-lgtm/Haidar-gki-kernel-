@@ -22,7 +22,7 @@ jobs:
 
       - name: Zip Psych Engine Folder
         run: |
-          zip -r psych-engine-release.zip . -x ".git/*" -x ".github/*"
+          zip -r psych-engine-release.zip * -x "psych-engine-release.zip"
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
