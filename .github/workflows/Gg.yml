@@ -1,4 +1,4 @@
-name: Upload PrimeOS to Release
+name: Upload APK to Release
 
 on:
   workflow_dispatch:
@@ -21,25 +21,26 @@ jobs:
       - name: Install Dependencies
         run: pip install requests
 
-      - name: Download ISO File
+      - name: Download File
         run: |
           python -c "
           import requests
-          target_url = 'https://release-assets.githubusercontent.com/github-production-release-asset/507288931/eb92fee6-9cc7-4753-8ce7-f483bba439e4?sp=r&sv=2018-11-09&sr=b&spr=https&se=2026-07-08T18%3A36%3A36Z&rscd=attachment%3B+filename%3Dyoutube-morphe-module-v20.51.39-all.zip&rsct=application%2Foctet-stream&skoid=96c2d410-5711-43a1-aedd-ab1947aa7ab0&sktid=398a6654-997b-47e9-b12b-9515b896b4de&skt=2026-07-08T17%3A35%3A54Z&ske=2026-07-08T18%3A36%3A36Z&sks=b&skv=2018-11-09&sig=eZpa2z1hH62Zb14xKlUwJTxPEGXrKLkze21mQuXPCFY%3D&jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmVsZWFzZS1hc3NldHMuZ2l0aHVidXNlcmNvbnRlbnQuY29tIiwia2V5Ijoia2V5MSIsImV4cCI6MTc4MzUzNjY3OSwibmJmIjoxNzgzNTMzMDc5LCJwYXRoIjoicmVsZWFzZWFzc2V0cHJvZHVjdGlvbi5ibG9iLmNvcmUud2luZG93cy5uZXQifQ.aIfCCI2rheImopphZZB9EjM46yvef5Q_Pf3DGLit93s&response-content-disposition=attachment%3B%20filename%3Dyoutube-morphe-module-v20.51.39-all.zip&response-content-type=application%2Foctet-stream'
+          target_url = 'https://cdn600.onehost.io/2023/Dead_Cells_3.5.9_1757556618_latestmodapks.com.apk'
           headers = {
               'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
           }
           with requests.get(target_url, stream=True, headers=headers) as r:
               r.raise_for_status()
-              with open('PrimeOS.iso', 'wb') as f:
+              with open('Dead_Cells_3.5.9.apk', 'wb') as f:
                   for chunk in r.iter_content(chunk_size=8192):
-                      f.write(chunk)
+                      if chunk:
+                          f.write(chunk)
           "
 
       - name: Verify Size
         run: |
-          FILE_SIZE=$(stat -c%s "PrimeOS.iso")
-          if [ $FILE_SIZE -lt 100000000 ]; then
+          FILE_SIZE=$(stat -c%s "Dead_Cells_3.5.9.apk")
+          if [ $FILE_SIZE -lt 1000000 ]; then
             echo "File size too small, download might have failed."
             exit 1
           fi
@@ -48,10 +49,10 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v2.52.3-beta
-          name: "PrimeOS 2.52.3 Beta"
-          body: "Automated upload of PrimeOS ISO."
+          name: "Dead Cells 3.5.9 Beta"
+          body: "Automated upload of the APK file."
           draft: false
           prerelease: true
-          files: PrimeOS.iso
+          files: Dead_Cells_3.5.9.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
