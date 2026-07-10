@@ -25,13 +25,15 @@ jobs:
         run: |
           python -c "
           import requests
-          target_url = 'https://cdn600.onehost.io/2023/Dead_Cells_3.5.9_1757556618_latestmodapks.com.apk'
+
+          target_url = 'https://download2447.mediafire.com/m09epp5b9hcgcCRbSyyTA0IeJWOE07PD8jHMB0RXoTQ-QzWhcTxRrNbz1k7cBspYNzr9iH2uJD0N5r75HVwhXblUThuVcpX8txq9QGTfNloUJuWwyVo9bN_cH_8Apmkh3PRW5lU6duVQFegvegBg2TMEs9q1-nhIVdShXIglhAMU/cvebskc7c9yee3e/Dead-Cells-v3.5.9-unlocked.apk'
           headers = {
               'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
           }
-          with requests.get(target_url, stream=True, headers=headers) as r:
+
+          with requests.get(target_url, stream=True, headers=headers, allow_redirects=True) as r:
               r.raise_for_status()
-              with open('Dead_Cells_3.5.9.apk', 'wb') as f:
+              with open('Dead_Cells_v3.5.9_unlocked.apk', 'wb') as f:
                   for chunk in r.iter_content(chunk_size=8192):
                       if chunk:
                           f.write(chunk)
@@ -39,7 +41,7 @@ jobs:
 
       - name: Verify Size
         run: |
-          FILE_SIZE=$(stat -c%s "Dead_Cells_3.5.9.apk")
+          FILE_SIZE=$(stat -c%s "Dead_Cells_v3.5.9_unlocked.apk")
           if [ $FILE_SIZE -lt 1000000 ]; then
             echo "File size too small, download might have failed."
             exit 1
@@ -49,10 +51,10 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v2.52.3-beta
-          name: "Dead Cells 3.5.9 Beta"
+          name: "Dead Cells v3.5.9 unlocked"
           body: "Automated upload of the APK file."
           draft: false
           prerelease: true
-          files: Dead_Cells_3.5.9.apk
+          files: Dead_Cells_v3.5.9_unlocked.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
