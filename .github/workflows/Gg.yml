@@ -1,4 +1,4 @@
-name: Upload PrimeOS to Release
+name: Download AMD 
 
 on:
   workflow_dispatch:
@@ -21,24 +21,25 @@ jobs:
       - name: Install Dependencies
         run: pip install requests
 
-      - name: Download ISO File
+      - name: Download File
         run: |
           python -c "
           import requests
-          target_url = 'https://drivers.amd.com/drivers/beta/non-whql-win10-64bit-radeon-software-crimson-relive-16.2.1-sep20.exe'
+          target_url = 'https://www2.ati.com/drivers/beta/non-whql-win10-64bit-radeon-software-crimson-relive-16.2.1-sep20.exe'
           headers = {
               'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
           }
-          with requests.get(target_url, stream=True, headers=headers) as r:
+          with requests.get(target_url, stream=True, headers=headers, allow_redirects=True) as r:
               r.raise_for_status()
-              with open('Radeon-Software.exe', 'wb') as f:
+              with open('AMD-Driver.exe', 'wb') as f:
                   for chunk in r.iter_content(chunk_size=8192):
-                      f.write(chunk)
+                      if chunk:
+                          f.write(chunk)
           "
 
       - name: Verify Size
         run: |
-          FILE_SIZE=$(stat -c%s "Radeon-Software.exe")
+          FILE_SIZE=$(stat -c%s "AMD-Driver.exe")
           if [ $FILE_SIZE -lt 1000000 ]; then
             echo "File size too small, download might have failed."
             exit 1
@@ -48,10 +49,10 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v2.52.3-beta
-          name: "PrimeOS 2.52.3 Beta"
-          body: "Automated upload of downloaded file."
+          name: "AMD Driver Beta"
+          body: "Automated upload of AMD driver file."
           draft: false
           prerelease: true
-          files: Radeon-Software.exe
+          files: AMD-Driver.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
