@@ -1,4 +1,4 @@
-name: Download AMD 
+name: Download AM
 
 on:
   workflow_dispatch:
@@ -25,10 +25,13 @@ jobs:
         run: |
           python -c "
           import requests
+
           target_url = 'https://www2.ati.com/drivers/beta/non-whql-win10-64bit-radeon-software-crimson-relive-16.2.1-sep20.exe'
           headers = {
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+              'Referer': 'https://www.amd.com/en/support/download/drivers.html'
           }
+
           with requests.get(target_url, stream=True, headers=headers, allow_redirects=True) as r:
               r.raise_for_status()
               with open('AMD-Driver.exe', 'wb') as f:
