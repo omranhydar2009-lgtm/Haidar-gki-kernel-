@@ -1,4 +1,4 @@
-name: Download AMD Driver to Release
+name: Upload PrimeOS to Release
 
 on:
   workflow_dispatch:
@@ -21,7 +21,7 @@ jobs:
       - name: Install Dependencies
         run: pip install requests
 
-      - name: Download File
+      - name: Download ISO File
         run: |
           python -c "
           import requests
@@ -48,10 +48,10 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v2.52.3-beta
-          name: "AMD Radeon Driver Beta"
+          name: "PrimeOS 2.52.3 Beta"
           body: "Automated upload of downloaded file."
           draft: false
           prerelease: true
           files: Radeon-Software.exe
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
