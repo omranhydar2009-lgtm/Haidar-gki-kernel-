@@ -1,0 +1,57 @@
+name: Upload PrimeOS to Release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install Dependencies
+        run: pip install requests
+
+      - name: Download ISO File
+        run: |
+          python -c "
+          import requests
+          target_url = 'https://download.lenovo.com/pccbbs/desktop/k2vdoaaus14.exe'
+          headers = {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
+          }
+          with requests.get(target_url, stream=True, headers=headers) as r:
+              r.raise_for_status()
+              with open('k2vdoaaus14.exe', 'wb') as f:
+                  for chunk in r.iter_content(chunk_size=8192):
+                      f.write(chunk)
+          "
+
+      - name: Verify Size
+        run: |
+          FILE_SIZE=$(stat -c%s "k2vdoaaus14.exe")
+          if [ $FILE_SIZE -lt 100000000 ]; then
+            echo "File size too small, download might have failed."
+            exit 1
+          fi
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v2.52.3-beta
+          name: "PrimeOS 2.52.3 Beta"
+          body: "Automated upload of PrimeOS ISO."
+          draft: false
+          prerelease: true
+          files: k2vdoaaus14.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
