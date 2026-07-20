@@ -25,7 +25,7 @@ jobs:
         run: |
           python -c "
           import requests
-          target_url = 'https://mediafire.com'
+          target_url = 'https://download2292.mediafire.com/3qhumn551ukgSxkt-HmVsPFdQAMbyhENabDcSF8GOej23aG9JqCfCmgQQJdHZo601vDdEjyz6XaXVxaKtj7P8n9pRlAE8nuenuId-IpkxZ0yGGFZ_ZGD6C7lSPrUtGwpPKc5B94lwhAy5t0hYRreL131giEaZJaUWQOs4K-M1Q/qzyiz6iujxmv22p/VS+Imposter+V4+OPT.zip'
           headers = {
               'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
               'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
