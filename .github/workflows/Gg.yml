@@ -1,13 +1,10 @@
-name: Download AM
+name: Check Psych Engine Mod Compatibility
 
 on:
   workflow_dispatch:
 
-permissions:
-  contents: write
-
 jobs:
-  build:
+  analyze-mod:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -21,41 +18,83 @@ jobs:
       - name: Install Dependencies
         run: pip install requests
 
-      - name: Download File
+      - name: Download Mod File
         run: |
           python -c "
           import requests
-
-          target_url = 'https://www2.ati.com/drivers/beta/non-whql-win10-64bit-radeon-software-crimson-relive-16.2.1-sep20.exe'
+          # تم وضع رابط المود المباشر الخاص بك هنا
+          target_url = 'https://drive.usercontent.google.com/download?id=1VgNQdi3P4byt3GcApHCR34zB2nweIPOg&export=download&confirm=t&uuid=20275175-6e41-4bb5-94a7-042e7f9bf777'
           headers = {
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-              'Referer': 'https://www.amd.com/en/support/download/drivers.html'
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
           }
-
-          with requests.get(target_url, stream=True, headers=headers, allow_redirects=True) as r:
+          print('جاري بدء تحميل المود من جوجل درايف...')
+          with requests.get(target_url, stream=True, headers=headers) as r:
               r.raise_for_status()
-              with open('AMD-Driver.exe', 'wb') as f:
+              with open('mod_file.zip', 'wb') as f:
                   for chunk in r.iter_content(chunk_size=8192):
-                      if chunk:
-                          f.write(chunk)
+                      f.write(chunk)
+          print('تم التحميل بنجاح!')
           "
 
-      - name: Verify Size
+      - name: Verify Downloaded File
         run: |
-          FILE_SIZE=$(stat -c%s "AMD-Driver.exe")
-          if [ $FILE_SIZE -lt 1000000 ]; then
-            echo "File size too small, download might have failed."
+          if [ ! -f "mod_file.zip" ]; then
+            echo "الملف غير موجود، التحميل فشل."
+            exit 1
+          fi
+          FILE_SIZE=$(stat -c%s "mod_file.zip")
+          echo "حجم الملف المحمل: $FILE_SIZE بايت"
+          if [ $FILE_SIZE -lt 100000 ]; then
+            echo "حجم الملف صغير جداً، قد يكون الرابط منتهي الصلاحية أو محمي."
             exit 1
           fi
 
-      - name: Create Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v2.52.3-beta
-          name: "AMD Driver Beta"
-          body: "Automated upload of AMD driver file."
-          draft: false
-          prerelease: true
-          files: AMD-Driver.exe
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Extract Mod File
+        run: |
+          mkdir extracted_mod
+          unzip -q mod_file.zip -d extracted_mod/ || echo "تنبيه: تم فك الضغط مع وجود بعض التحذيرات"
+          echo "=============================="
+          echo "تم فك ضغط المود وجاري الفحص..."
+          echo "=============================="
+
+      - name: Run Compatibility Scanner
+        run: |
+          python - <<EOF
+          import os
+          import json
+
+          mod_path = "extracted_mod"
+          has_pack_json = False
+          is_legacy = False
+          pack_data = None
+
+          print("--- بدء فحص ملفات المود لنسخة Psych Engine 1.0.4 ---")
+          
+          for root, dirs, files in os.walk(mod_path):
+              if "pack.json" in files:
+                  has_pack_json = True
+                  pack_path = os.path.join(root, "pack.json")
+                  try:
+                      with open(pack_path, 'r', encoding='utf-8', errors='ignore') as f:
+                          pack_data = json.load(f)
+                  except Exception as e:
+                      print(f"[⚠] تم العثور على pack.json ولكن به مشكلة في القراءة: {e}")
+
+              if "assets" in dirs and not has_pack_json:
+                  is_legacy = True
+
+          print("\n--- النتيجة النهائية للفحص ---")
+          if has_pack_json:
+              print("✅ المود متوافق تماماً!")
+              if pack_data:
+                  print(f"اسم المود المعتمد: {pack_data.get('name', 'غير محدد')}")
+                  print(f"الوصف: {pack_data.get('description', 'لا يوجد وصف')}")
+              print("👉 يمكنك نقله مباشرة لمجلد mods في نسخة Psych Engine 1.0.4 الخاصة بك على Linux.")
+          elif is_legacy:
+              print("❌ تحذير: هذا المود قديم ومصمم لإصدار 0.6.3 أو أقل!")
+              print("👉 تشغيله على 1.0.4 سيسبب كراش فوري. تحتاج لتعديل ملفات الـ Lua يدوياً.")
+          else:
+              print("❓ البنية غير واضحة: لم نجد pack.json أو مجلد assets كلاسيكي.")
+              print("👉 قد يكون مجرد مجلد يحتوي على أغاني مستقلة تحتاج لدمج يدوياً.")
+          
+          EOF
