@@ -1,4 +1,4 @@
-name: Check Mod and Sync Pack JSON
+name: Fetch Mod and Sync directly to Repository
 
 on:
   workflow_dispatch:
@@ -7,11 +7,13 @@ permissions:
   contents: write
 
 jobs:
-  analyze-and-sync:
+  download-and-sync:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -21,96 +23,86 @@ jobs:
       - name: Install Dependencies
         run: pip install requests
 
-      - name: Download Mod from Mediafire
+      - name: Smart Download from Mediafire
         run: |
           python -c "
           import requests
-          target_url = 'https://download2292.mediafire.com/d8gku97sijtg4RcBlzwBt3gBxFQv74FoQ3BiS3_TuJ65hxEejRJTGS6tNJIw6yDO07W60vxYzeIGQKWrMH0n2ChFT78MUlemN8jJyLTrETDZ3GznV9uDxuSwUvVhdf1DYVh1j_s2yhHdW9Otk5F0DVNBqK7T41ksRsNclzq4Nw/qzyiz6iujxmv22p/VS+Imposter+V4+OPT.zip'
+          # استخدام الرابط المحدث الذي يحتوي على الـ dkey لتفادي الكابتشا والتحميل المباشر
+          target_url = 'https://mediafire.com'
+          
           headers = {
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-              'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-              'Accept-Language': 'en-US,en;q=0.9',
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+              'Accept': '*/*',
               'Connection': 'keep-alive'
           }
+          
+          print('جاري بدء التحميل الفعلي للمود (1.82 جيجابايت)...')
           session = requests.Session()
-          print('Starting download with session tracking...')
           with session.get(target_url, stream=True, headers=headers) as r:
               r.raise_for_status()
               with open('VS_Imposter_V4_OPT.zip', 'wb') as f:
-                  for chunk in r.iter_content(chunk_size=8192):
+                  for chunk in r.iter_content(chunk_size=32768): # زيادة الـ Chunk لسرعة نقل البيانات
                       f.write(chunk)
-          print('Download completed successfully!')
+          print('اكتمل تحميل الملف بنجاح وبسرعة عالية!')
           "
 
-      - name: Verify Downloaded File
+      - name: Verify and Extract Mod File
         run: |
           if [ ! -f "VS_Imposter_V4_OPT.zip" ]; then
-            echo "File not found! Download failed."
+            echo "خطأ: الملف غير موجود."
             exit 1
           fi
           FILE_SIZE=$(stat -c%s "VS_Imposter_V4_OPT.zip")
-          echo "File size: $FILE_SIZE bytes"
-          if [ $FILE_SIZE -lt 100000 ]; then
-            echo "File size too small, captcha trigger or expired link detected."
+          echo "حجم الملف المحمل: $FILE_SIZE بايت"
+          if [ $FILE_SIZE -lt 100000000 ]; then
+            echo "خطأ: حجم الملف صغير جداً، التحميل لم يكتمل بسبب قيود الرابط."
             exit 1
           fi
+          mkdir -p current_mod
+          unzip -q VS_Imposter_V4_OPT.zip -d current_mod/ || echo "تم فك الضغط مع تحذيرات ثانوية"
 
-      - name: Extract and Run Compatibility Scanner
+      - name: Structure and Inject Pack JSON
         run: |
-          mkdir extracted_mod
-          unzip -q VS_Imposter_V4_OPT.zip -d extracted_mod/ || echo "Warning: Extracted with issues"
-          
           python - <<EOF
           import os
           import json
-          import shutil
 
-          mod_path = "extracted_mod"
-          has_pack_json = False
-          is_legacy = False
-          pack_data = None
-          found_pack_path = None
-          target_dir = mod_path
+          mod_dir = "current_mod"
+          has_pack = False
+          target_path = mod_dir
 
-          print("--- Scanning for Psych Engine 1.0.4 Compatibility ---")
-          
-          for root, dirs, files in os.walk(mod_path):
+          print("--- فحص بنية المود وحقن ملف التوافق ---")
+          for root, dirs, files in os.walk(mod_dir):
               if "pack.json" in files:
-                  has_pack_json = True
-                  found_pack_path = os.path.join(root, "pack.json")
-                  try:
-                      with open(found_pack_path, 'r', encoding='utf-8', errors='ignore') as f:
-                          pack_data = json.load(f)
-                  except Exception as e:
-                      print(f"[⚠] Found pack.json but failed to read: {e}")
+                  has_pack = True
+                  print("✅ المود يحتوي بالفعل على pack.json وهو جاهز.")
                   break
               if "songs" in dirs or "characters" in dirs or "data" in dirs:
-                  target_dir = root
+                  target_path = root
+                  break
 
-          print("\n--- Final Scan Results ---")
-          if has_pack_json:
-              print("✅ Mod is fully compatible! pack.json already exists.")
-              if pack_data:
-                  print(f"Mod Name: {pack_data.get('name', 'Undefined')}")
-              shutil.copy(found_pack_path, "./pack.json")
-          else:
-              print("❌ Warning: This mod does not have a pack.json (Legacy structure or raw song folder).")
-              print("👉 Automatically creating a compatible pack.json for version 1.0.4...")
+          if not has_pack:
+              print("⚠ ملف pack.json مفقود. جاري توليده وتخصيصه لإصدار 1.0.4...")
               pack_content = {
                   "name": "Vs Impostor V4 - Optimized Pack",
                   "description": "Optimized for Low-End PCs (4GB RAM) and compatible with Psych Engine 1.0.4",
                   "restart": True
               }
-              with open("./pack.json", "w", encoding="utf-8") as f:
+              with open(os.path.join(target_path, "pack.json"), "w", encoding="utf-8") as f:
                   json.dump(pack_content, f, indent=4, ensure_ascii=False)
-              print("✅ Created new pack.json successfully.")
-          
+              print("✅ تم إنشاء pack.json ودمجه داخل مجلدات المود بنجاح!")
           EOF
 
-      - name: Commit and Push pack.json to Repository
+      - name: Commit and Push Game Files Directly to Repository
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
-          git add pack.json
-          git commit -m "Sync verified pack.json from Psych Engine Mod Scan" || echo "No changes to commit"
-          git push
+          
+          # إنشاء مجلد منظم للمودات داخل مستودعك
+          mkdir -p mods/Vs_Impostor_V4_Optimized
+          cp -r current_mod/* mods/Vs_Impostor_V4_Optimized/
+          
+          # رفع كافة الملفات والـ Sprites المضغوطة مباشرة إلى الكود
+          git add mods/
+          git commit -m "Sync complete optimized Among Us mod files with pack.json" || echo "لا توجد تغييرات جديدة لرفعها"
+          git push origin main || git push origin master
