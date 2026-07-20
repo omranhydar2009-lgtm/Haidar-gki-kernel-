@@ -25,38 +25,38 @@ jobs:
         run: |
           python -c "
           import requests
-          target_url = 'https://mediafire.com'
+          target_url = 'https://download2292.mediafire.com/97dmuy3npong9P_RzeghaN2WTRiy4mJftQzAFVQVQCdUy1zBp0HzG6htqsDvvoU7yMJStGYHE1rA9RH8Pr3yQQ_9job072fyMRDugErSpeDR5NJuWXHB2x6H4NYLnwIKuUwH48H17ViUEVdj9cL7u-N9jU1TYEz28tg1en02MA/qzyiz6iujxmv22p/VS+Imposter+V4+OPT.zip'
           headers = {
               'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
               'Accept': '*/*',
               'Connection': 'keep-alive'
           }
-          print('جاري تحميل المود المخصص للأجهزة الضعيفة...')
+          print('Starting download...')
           with requests.get(target_url, stream=True, headers=headers) as r:
               r.raise_for_status()
               with open('VS_Imposter_V4_OPT.zip', 'wb') as f:
                   for chunk in r.iter_content(chunk_size=8192):
                       f.write(chunk)
-          print('تم التحميل بنجاح!')
+          print('Download completed!')
           "
 
       - name: Verify Size
         run: |
           if [ ! -f "VS_Imposter_V4_OPT.zip" ]; then
-            echo "الملف غير موجود! التحميل فشل."
+            echo "File not found! Download failed."
             exit 1
           fi
           FILE_SIZE=$(stat -c%s "VS_Imposter_V4_OPT.zip")
-          echo "حجم الملف: $FILE_SIZE بايت"
+          echo "File size: $FILE_SIZE bytes"
           if [ $FILE_SIZE -lt 100000 ]; then
-            echo "الملف صغير جداً، الرابط منتهي الصلاحية."
+            echo "File size too small, link might be expired."
             exit 1
           fi
 
       - name: Extract, Scan and Build Pack JSON
         run: |
           mkdir extracted_mod
-          unzip -q VS_Imposter_V4_OPT.zip -d extracted_mod/ || echo "تم فك الضغط مع تحذيرات ثانوية"
+          unzip -q VS_Imposter_V4_OPT.zip -d extracted_mod/ || echo "Warning: Extracted with issues"
           
           python - <<EOF
           import os
@@ -66,18 +66,17 @@ jobs:
           has_pack_json = False
           target_dir = mod_path
 
-          # البحث عن مكان المجلد الرئيسي للمود بالداخل
           for root, dirs, files in os.walk(mod_path):
               if "pack.json" in files:
                   has_pack_json = True
-                  print("✅ المود يحتوي بالفعل على ملف pack.json ومتوافق!")
+                  print("✅ Mod already has pack.json!")
                   break
               if "songs" in dirs or "characters" in dirs or "data" in dirs:
                   target_dir = root
                   break
 
           if not has_pack_json:
-              print("⚠ لم يتم العثور على pack.json. جاري إنشائه تلقائياً لنسخة 1.0.4...")
+              print("⚠ pack.json missing. Generating for version 1.0.4...")
               pack_content = {
                   "name": "Vs Impostor V4 - Optimized Pack",
                   "description": "Optimized for Low-End PCs (4GB RAM) and compatible with Psych Engine 1.0.4",
@@ -85,7 +84,7 @@ jobs:
               }
               with open(os.path.join(target_dir, "pack.json"), "w", encoding="utf-8") as f:
                   json.dump(pack_content, f, indent=4, ensure_ascii=False)
-              print("✅ تم بناء وحقن ملف pack.json بنجاح داخل المود!")
+              print("✅ Generated pack.json inside the mod directory!")
           EOF
 
       - name: Repack Verified Mod
@@ -99,7 +98,7 @@ jobs:
         with:
           tag_name: v1.0.4-impostor-opt
           name: "Vs Impostor V4 Optimized for Psych 1.0.4"
-          body: "نسخة مود امونج اس المحسنة والجاهزة للعب مباشرة على رام 4GB بنسخة Psych Engine 1.0.4 للينكس."
+          body: "Automated upload of optimized Vs Impostor V4 mod for Psych Engine 1.0.4."
           draft: false
           prerelease: false
           files: Verified_Impostor_V4_1.0.4.zip
