@@ -1,4 +1,4 @@
-name: Process and Check Psych Engine Mod
+name: Check Mod and Sync Pack JSON
 
 on:
   workflow_dispatch:
@@ -7,7 +7,7 @@ permissions:
   contents: write
 
 jobs:
-  build-and-check:
+  analyze-and-sync:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
@@ -25,22 +25,24 @@ jobs:
         run: |
           python -c "
           import requests
-          target_url = 'https://download2292.mediafire.com/97dmuy3npong9P_RzeghaN2WTRiy4mJftQzAFVQVQCdUy1zBp0HzG6htqsDvvoU7yMJStGYHE1rA9RH8Pr3yQQ_9job072fyMRDugErSpeDR5NJuWXHB2x6H4NYLnwIKuUwH48H17ViUEVdj9cL7u-N9jU1TYEz28tg1en02MA/qzyiz6iujxmv22p/VS+Imposter+V4+OPT.zip'
+          target_url = 'https://mediafire.com'
           headers = {
               'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-              'Accept': '*/*',
+              'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+              'Accept-Language': 'en-US,en;q=0.9',
               'Connection': 'keep-alive'
           }
-          print('Starting download...')
-          with requests.get(target_url, stream=True, headers=headers) as r:
+          session = requests.Session()
+          print('Starting download with session tracking...')
+          with session.get(target_url, stream=True, headers=headers) as r:
               r.raise_for_status()
               with open('VS_Imposter_V4_OPT.zip', 'wb') as f:
                   for chunk in r.iter_content(chunk_size=8192):
                       f.write(chunk)
-          print('Download completed!')
+          print('Download completed successfully!')
           "
 
-      - name: Verify Size
+      - name: Verify Downloaded File
         run: |
           if [ ! -f "VS_Imposter_V4_OPT.zip" ]; then
             echo "File not found! Download failed."
@@ -49,11 +51,11 @@ jobs:
           FILE_SIZE=$(stat -c%s "VS_Imposter_V4_OPT.zip")
           echo "File size: $FILE_SIZE bytes"
           if [ $FILE_SIZE -lt 100000 ]; then
-            echo "File size too small, link might be expired."
+            echo "File size too small, captcha trigger or expired link detected."
             exit 1
           fi
 
-      - name: Extract, Scan and Build Pack JSON
+      - name: Extract and Run Compatibility Scanner
         run: |
           mkdir extracted_mod
           unzip -q VS_Imposter_V4_OPT.zip -d extracted_mod/ || echo "Warning: Extracted with issues"
@@ -61,46 +63,54 @@ jobs:
           python - <<EOF
           import os
           import json
+          import shutil
 
           mod_path = "extracted_mod"
           has_pack_json = False
+          is_legacy = False
+          pack_data = None
+          found_pack_path = None
           target_dir = mod_path
 
+          print("--- Scanning for Psych Engine 1.0.4 Compatibility ---")
+          
           for root, dirs, files in os.walk(mod_path):
               if "pack.json" in files:
                   has_pack_json = True
-                  print("✅ Mod already has pack.json!")
+                  found_pack_path = os.path.join(root, "pack.json")
+                  try:
+                      with open(found_pack_path, 'r', encoding='utf-8', errors='ignore') as f:
+                          pack_data = json.load(f)
+                  except Exception as e:
+                      print(f"[⚠] Found pack.json but failed to read: {e}")
                   break
               if "songs" in dirs or "characters" in dirs or "data" in dirs:
                   target_dir = root
-                  break
 
-          if not has_pack_json:
-              print("⚠ pack.json missing. Generating for version 1.0.4...")
+          print("\n--- Final Scan Results ---")
+          if has_pack_json:
+              print("✅ Mod is fully compatible! pack.json already exists.")
+              if pack_data:
+                  print(f"Mod Name: {pack_data.get('name', 'Undefined')}")
+              shutil.copy(found_pack_path, "./pack.json")
+          else:
+              print("❌ Warning: This mod does not have a pack.json (Legacy structure or raw song folder).")
+              print("👉 Automatically creating a compatible pack.json for version 1.0.4...")
               pack_content = {
                   "name": "Vs Impostor V4 - Optimized Pack",
                   "description": "Optimized for Low-End PCs (4GB RAM) and compatible with Psych Engine 1.0.4",
                   "restart": True
               }
-              with open(os.path.join(target_dir, "pack.json"), "w", encoding="utf-8") as f:
+              with open("./pack.json", "w", encoding="utf-8") as f:
                   json.dump(pack_content, f, indent=4, ensure_ascii=False)
-              print("✅ Generated pack.json inside the mod directory!")
+              print("✅ Created new pack.json successfully.")
+          
           EOF
 
-      - name: Repack Verified Mod
+      - name: Commit and Push pack.json to Repository
         run: |
-          cd extracted_mod
-          zip -r ../Verified_Impostor_V4_1.0.4.zip .
-          cd ..
-
-      - name: Upload to Github Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v1.0.4-impostor-opt
-          name: "Vs Impostor V4 Optimized for Psych 1.0.4"
-          body: "Automated upload of optimized Vs Impostor V4 mod for Psych Engine 1.0.4."
-          draft: false
-          prerelease: false
-          files: Verified_Impostor_V4_1.0.4.zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add pack.json
+          git commit -m "Sync verified pack.json from Psych Engine Mod Scan" || echo "No changes to commit"
+          git push
