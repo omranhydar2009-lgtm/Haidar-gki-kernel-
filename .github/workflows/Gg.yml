@@ -1,4 +1,4 @@
-name: Fetch Mod and Sync directly to Repository
+name: Ultimate Mod Sync to Repository
 
 on:
   workflow_dispatch:
@@ -23,43 +23,42 @@ jobs:
       - name: Install Dependencies
         run: pip install requests
 
-      - name: Smart Download from Mediafire
+      - name: Download Mod via True Direct Link
         run: |
           python -c "
           import requests
-          # استخدام الرابط المحدث الذي يحتوي على الـ dkey لتفادي الكابتشا والتحميل المباشر
-          target_url = 'https://mediafire.com'
-          
+          # استبدل هذا الرابط برابط الـ .zip المباشر الجديد الخاص بك (مثل catbox أو pixeldrain)
+          target_url = 'ضع_الرابط_المباشر_الجديد_هنا'
           headers = {
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-              'Accept': '*/*',
-              'Connection': 'keep-alive'
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
           }
-          
-          print('جاري بدء التحميل الفعلي للمود (1.82 جيجابايت)...')
-          session = requests.Session()
-          with session.get(target_url, stream=True, headers=headers) as r:
+          print('جاري بدء التحميل المستقر...')
+          with requests.get(target_url, stream=True, headers=headers) as r:
               r.raise_for_status()
               with open('VS_Imposter_V4_OPT.zip', 'wb') as f:
-                  for chunk in r.iter_content(chunk_size=32768): # زيادة الـ Chunk لسرعة نقل البيانات
+                  for chunk in r.iter_content(chunk_size=16384):
                       f.write(chunk)
-          print('اكتمل تحميل الملف بنجاح وبسرعة عالية!')
+          print('اكتمل تحميل الملف بنجاح تام!')
           "
 
-      - name: Verify and Extract Mod File
+      - name: Verify Size and Check Failure
         run: |
           if [ ! -f "VS_Imposter_V4_OPT.zip" ]; then
-            echo "خطأ: الملف غير موجود."
+            echo "الملف غير موجود نهائياً."
             exit 1
           fi
           FILE_SIZE=$(stat -c%s "VS_Imposter_V4_OPT.zip")
           echo "حجم الملف المحمل: $FILE_SIZE بايت"
-          if [ $FILE_SIZE -lt 100000000 ]; then
-            echo "خطأ: حجم الملف صغير جداً، التحميل لم يكتمل بسبب قيود الرابط."
+          # التحقق للتأكد من أن الحجم كبير ويطابق ملف اللعبة الفعلي (أكبر من 500 ميجابايت)
+          if [ $FILE_SIZE -lt 500000000 ]; then
+            echo "فشل التحميل! حجم الملف صغير جداً ولا يحتوي على بيانات المود."
             exit 1
           fi
+
+      - name: Extract Mod File
+        run: |
           mkdir -p current_mod
-          unzip -q VS_Imposter_V4_OPT.zip -d current_mod/ || echo "تم فك الضغط مع تحذيرات ثانوية"
+          unzip -q VS_Imposter_V4_OPT.zip -d current_mod/ || echo "تم فك الضغط مع وجود بعض التحذيرات"
 
       - name: Structure and Inject Pack JSON
         run: |
@@ -71,18 +70,15 @@ jobs:
           has_pack = False
           target_path = mod_dir
 
-          print("--- فحص بنية المود وحقن ملف التوافق ---")
           for root, dirs, files in os.walk(mod_dir):
               if "pack.json" in files:
                   has_pack = True
-                  print("✅ المود يحتوي بالفعل على pack.json وهو جاهز.")
                   break
               if "songs" in dirs or "characters" in dirs or "data" in dirs:
                   target_path = root
                   break
 
           if not has_pack:
-              print("⚠ ملف pack.json مفقود. جاري توليده وتخصيصه لإصدار 1.0.4...")
               pack_content = {
                   "name": "Vs Impostor V4 - Optimized Pack",
                   "description": "Optimized for Low-End PCs (4GB RAM) and compatible with Psych Engine 1.0.4",
@@ -90,19 +86,18 @@ jobs:
               }
               with open(os.path.join(target_path, "pack.json"), "w", encoding="utf-8") as f:
                   json.dump(pack_content, f, indent=4, ensure_ascii=False)
-              print("✅ تم إنشاء pack.json ودمجه داخل مجلدات المود بنجاح!")
+              print("✅ تم إنشاء وتأكيد ملف pack.json المتوافق!")
           EOF
 
-      - name: Commit and Push Game Files Directly to Repository
+      - name: Commit and Push All Game Files to Repository
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           
-          # إنشاء مجلد منظم للمودات داخل مستودعك
+          # نقل اللعبة كاملة لمجلد المودات بالمستودع الخاص بك
           mkdir -p mods/Vs_Impostor_V4_Optimized
           cp -r current_mod/* mods/Vs_Impostor_V4_Optimized/
           
-          # رفع كافة الملفات والـ Sprites المضغوطة مباشرة إلى الكود
           git add mods/
-          git commit -m "Sync complete optimized Among Us mod files with pack.json" || echo "لا توجد تغييرات جديدة لرفعها"
+          git commit -m "Sync verified optimized Among Us mod files with pack.json" || echo "No changes to commit"
           git push origin main || git push origin master
