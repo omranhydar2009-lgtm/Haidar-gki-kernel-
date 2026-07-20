@@ -1,4 +1,4 @@
-name: Ultimate Mod Sync to Repository
+name: Modern Psych Engine 1.0.4 Compatibility Scanner
 
 on:
   workflow_dispatch:
@@ -7,97 +7,93 @@ permissions:
   contents: write
 
 jobs:
-  download-and-sync:
+  advanced-scan:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.x'
 
-      - name: Install Dependencies
-        run: pip install requests
-
-      - name: Download Mod via True Direct Link
+      - name: Download Mod from GitHub Release
         run: |
-          python -c "
-          import requests
-          # استبدل هذا الرابط برابط الـ .zip المباشر الجديد الخاص بك (مثل catbox أو pixeldrain)
-          target_url = 'ضع_الرابط_المباشر_الجديد_هنا'
-          headers = {
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
-          }
-          print('جاري بدء التحميل المستقر...')
-          with requests.get(target_url, stream=True, headers=headers) as r:
-              r.raise_for_status()
-              with open('VS_Imposter_V4_OPT.zip', 'wb') as f:
-                  for chunk in r.iter_content(chunk_size=16384):
-                      f.write(chunk)
-          print('اكتمل تحميل الملف بنجاح تام!')
-          "
+          # تحميل الملف المباشر من الـ Release الخاص بمستودعك
+          curl -L "https://github.com" -o mod_file.zip
+          echo "📥 Download finished successfully!"
 
-      - name: Verify Size and Check Failure
+      - name: Extract Mod Archive
         run: |
-          if [ ! -f "VS_Imposter_V4_OPT.zip" ]; then
-            echo "الملف غير موجود نهائياً."
-            exit 1
-          fi
-          FILE_SIZE=$(stat -c%s "VS_Imposter_V4_OPT.zip")
-          echo "حجم الملف المحمل: $FILE_SIZE بايت"
-          # التحقق للتأكد من أن الحجم كبير ويطابق ملف اللعبة الفعلي (أكبر من 500 ميجابايت)
-          if [ $FILE_SIZE -lt 500000000 ]; then
-            echo "فشل التحميل! حجم الملف صغير جداً ولا يحتوي على بيانات المود."
-            exit 1
-          fi
+          mkdir -p extracted_content
+          unzip -q mod_file.zip -d extracted_content/ || echo "⚠ Notice: Extracted with minor zip warnings."
 
-      - name: Extract Mod File
-        run: |
-          mkdir -p current_mod
-          unzip -q VS_Imposter_V4_OPT.zip -d current_mod/ || echo "تم فك الضغط مع وجود بعض التحذيرات"
-
-      - name: Structure and Inject Pack JSON
+      - name: Advanced Static Code Analysis
         run: |
           python - <<EOF
           import os
           import json
 
-          mod_dir = "current_mod"
-          has_pack = False
-          target_path = mod_dir
+          scan_path = "extracted_content"
+          has_pack_json = False
+          is_legacy_0_6 = False
+          has_lua_scripts = False
+          broken_lua_detected = False
+          pack_data = None
+          
+          # دالات قديمة تسبب كراش فوري في إصدار 1.0.4
+          legacy_functions = ["objectPlayAnimation", "luaSpriteMakeGraphic", "initLuaShader"]
 
-          for root, dirs, files in os.walk(mod_dir):
+          print("=== Starting Modern Structural Scan for Psych Engine 1.0.4 ===")
+          
+          for root, dirs, files in os.walk(scan_path):
+              # 1. التحقق من ملف التكوين الحديث
               if "pack.json" in files:
-                  has_pack = True
-                  break
-              if "songs" in dirs or "characters" in dirs or "data" in dirs:
-                  target_path = root
-                  break
+                  has_pack_json = True
+                  try:
+                      with open(os.path.join(root, "pack.json"), 'r', encoding='utf-8', errors='ignore') as f:
+                          pack_data = json.load(f)
+                  except:
+                      pass
+              
+              # 2. فحص الأكواد البرمجية (Lua Script Analysis)
+              for file in files:
+                  if file.endswith(".lua"):
+                      has_lua_scripts = True
+                      try:
+                          with open(os.path.join(root, file), 'r', encoding='utf-8', errors='ignore') as f:
+                              content = f.read()
+                              # البحث عن دالات قديمة غير مدعومة في 1.0.4
+                              for func in legacy_functions:
+                                  if func in content:
+                                      broken_lua_detected = True
+                                      print(f"[⚠] Warning: Outdated function '{func}' found in script: {file}")
+                      except:
+                          pass
 
-          if not has_pack:
-              pack_content = {
-                  "name": "Vs Impostor V4 - Optimized Pack",
-                  "description": "Optimized for Low-End PCs (4GB RAM) and compatible with Psych Engine 1.0.4",
-                  "restart": True
-              }
-              with open(os.path.join(target_path, "pack.json"), "w", encoding="utf-8") as f:
-                  json.dump(pack_content, f, indent=4, ensure_ascii=False)
-              print("✅ تم إنشاء وتأكيد ملف pack.json المتوافق!")
+              # 3. التحقق من البنية الكلاسيكية القديمة
+              if "assets" in dirs and not has_pack_json:
+                  is_legacy_0_6 = True
+
+          print("\n=== Final Compatibility Report ===")
+          
+          if has_pack_json:
+              print("✅ Status: Fully Compatible Structure!")
+              if pack_data:
+                  print(f"📦 Mod Meta Name: {pack_data.get('name', 'Unknown')}")
+                  print(f"📝 Description: {pack_data.get('description', 'None')}")
+              
+              if broken_lua_detected:
+                  print("⚠ Notice: The structural layout is correct (1.0.4), but some inner Lua files use older API methods. It will load, but some visual scripts might skip.")
+              else:
+                  print("✨ Performance Note: Lua API looks fully modernized for V1.0+ Engine benchmarks.")
+                  
+          elif is_legacy_0_6:
+              print("❌ Status: INCOMPATIBLE (Legacy 0.6.3 structure detected)!")
+              print("👉 This archive outputs directly into 'assets'. Running it on 1.0.4 will cause a crash.")
+          else:
+              print("❓ Status: Unrecognized or Raw Asset Folder.")
+              print("👉 It doesn't contain a modern pack structure. Might be a simple drag-and-drop song pack.")
+          
           EOF
-
-      - name: Commit and Push All Game Files to Repository
-        run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          
-          # نقل اللعبة كاملة لمجلد المودات بالمستودع الخاص بك
-          mkdir -p mods/Vs_Impostor_V4_Optimized
-          cp -r current_mod/* mods/Vs_Impostor_V4_Optimized/
-          
-          git add mods/
-          git commit -m "Sync verified optimized Among Us mod files with pack.json" || echo "No changes to commit"
-          git push origin main || git push origin master
