@@ -1,4 +1,4 @@
-name: Upload PrimeOS to Release
+name: Upload Tiny10 to Release and Report (Ubuntu Base)
 
 on:
   workflow_dispatch:
@@ -8,7 +8,7 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest # العودة إلى بيئة أوبونتو كما تذكرت تماماً
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -19,39 +19,93 @@ jobs:
           python-version: '3.x'
 
       - name: Install Dependencies
-        run: pip install requests
+        run: |
+          pip install requests
+          # تثبيت أدوات لينكس للتعامل مع ملفات الأيزو والـ WIM الخاصة بالويندوز
+          sudo apt-get update
+          sudo apt-get install -y p7zip-full wimtools
 
       - name: Download ISO File
         run: |
           python -c "
           import requests
-          target_url = 'https://download.lenovo.com/pccbbs/desktop/k2vdoaaus14.exe'
+          target_url = 'https://archive.org'
           headers = {
               'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
           }
+          print('[+] جاري تحميل ملف الأيزو عبر بايثون...')
           with requests.get(target_url, stream=True, headers=headers) as r:
               r.raise_for_status()
-              with open('k2vdoaaus14.exe', 'wb') as f:
+              with open('tiny10_23h2.iso', 'wb') as f:
                   for chunk in r.iter_content(chunk_size=8192):
                       f.write(chunk)
+          print('[+] اكتمل التحميل بنجاح.')
           "
 
       - name: Verify Size
         run: |
-          FILE_SIZE=$(stat -c%s "k2vdoaaus14.exe")
+          FILE_SIZE=$(stat -c%s "tiny10_23h2.iso")
+          echo "حجم الملف المحمل: $FILE_SIZE بايت"
           if [ $FILE_SIZE -lt 100000000 ]; then
-            echo "File size too small, download might have failed."
+            echo "خطأ: حجم الملف صغير جداً، فشل التحميل."
             exit 1
           fi
 
-      - name: Create Release
+      - name: Analyze ISO and Generate Report on Ubuntu
+        run: |
+          echo "==================================================" > Windows_ISO_Report.txt
+          echo "    تقرير فحص نسخة Tiny10 عبر خوادم GitHub (Ubuntu)   " >> Windows_ISO_Report.txt
+          echo "==================================================" >> Windows_ISO_Report.txt
+          echo "تاريخ الفحص: $(date)" >> Windows_ISO_Report.txt
+          echo "" >> Windows_ISO_Report.txt
+
+          echo "[+] جاري استخراج ملف معلومات النظام من الأيزو..."
+          # استخراج ملف الـ wim أو esd فقط من داخل الأيزو لتوفير الوقت والمساحة
+          7z e tiny10_23h2.iso sources/install.wim sources/install.esd -o./extracted_wim -y || true
+
+          # تحديد الملف المستخرج وتجهيز الفحص
+          WIM_FILE=$(find ./extracted_wim -name "install.wim" -o -name "install.esd" | head -n 1)
+
+          if [ -f "$WIM_FILE" ]; then
+              echo "[+] تم العثور على ملف النظام: $WIM_FILE"
+              
+              echo "[+] 1. تفاصيل ونوع نسخة الويندوز الأساسية:" >> Windows_ISO_Report.txt
+              # استخدام أداة wiminfo لقراءة تفاصيل النسخة من داخل النواة مباشرة
+              wiminfo "$WIM_FILE" 1 >> Windows_ISO_Report.txt
+              echo "" >> Windows_ISO_Report.txt
+
+              echo "[+] 2. فحص مجلدات برنامج الحماية (Windows Defender):" >> Windows_ISO_Report.txt
+              # استعراض شجرة المجلدات داخل الـ WIM للتحقق من وجود مجلد Defender
+              if wimdir "$WIM_FILE" 1 | grep -i "Program Files/Windows Defender" > /dev/null; then
+                  echo "- حالة المجلد: مجلد Windows Defender متواجد في بنية ملفات النظام." >> Windows_ISO_Report.txt
+              else
+                  echo "- حالة المجلد: لم يتم العثور على مجلد Defender (تم حذفه لتخفيف النسخة)." >> Windows_ISO_Report.txt
+              fi
+              echo "" >> Windows_ISO_Report.txt
+
+              echo "[+] 3. قائمة ببعض حزم وتطبيقات النظام المتواجدة:" >> Windows_ISO_Report.txt
+              echo "--------------------------------------------------" >> Windows_ISO_Report.txt
+              # استخراج قائمة بجميع المجلدات داخل ملفات البرامج لإعطاء لمحة عن التطبيقات المدمجة
+              wimdir "$WIM_FILE" 1 | grep -E "^/Program Files/|^/Program Files \(x86\)/" | awk -F'/' '{print $3}' | sort -u | sed 's/^/ - /' >> Windows_ISO_Report.txt
+
+          else
+              echo "[-] خطأ: لم يتم العثور على ملف install.wim أو install.esd داخل الأيزو المرفق." >> Windows_ISO_Report.txt
+          fi
+
+          echo "" >> Windows_ISO_Report.txt
+          echo "=========================================" >> Windows_ISO_Report.txt
+          echo "تم توليد التقرير بنجاح من بيئة Ubuntu." >> Windows_ISO_Report.txt
+
+      - name: Create Release and Upload Assets
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v2.52.3-beta
-          name: "PrimeOS 2.52.3 Beta"
-          body: "Automated upload of PrimeOS ISO."
+          tag_name: v1.0.0-tiny10-ubuntu
+          name: "Tiny10 23H2 Ubuntu-Based Release"
+          body: "This release contains the Tiny10 ISO and its analysis report generated fully on Ubuntu environment."
           draft: false
-          prerelease: true
-          files: k2vdoaaus14.exe
+          prerelease: false
+          files: |
+            tiny10_23h2.iso
+            Windows_ISO_Report.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
