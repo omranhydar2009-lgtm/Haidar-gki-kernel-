@@ -8,7 +8,7 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-latest # العودة إلى بيئة أوبونتو كما تذكرت تماماً
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -29,25 +29,49 @@ jobs:
         run: |
           python -c "
           import requests
-          target_url = 'https://archive.org'
+          import sys
+
+          target_url = 'https://dn790006.ca.archive.org/0/items/tiny-10-23-h2/tiny10%20x64%2023h2.iso'
+          
+          # إنشاء جلسة للحفاظ على الكوكيز والاتصال المتتابع
+          session = requests.Session()
+          
           headers = {
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+              'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+              'Accept-Language': 'en-US,en;q=0.9',
+              'Referer': 'https://archive.org',
+              'Connection': 'keep-alive',
+              'Upgrade-Insecure-Requests': '1'
           }
-          print('[+] جاري تحميل ملف الأيزو عبر بايثون...')
-          with requests.get(target_url, stream=True, headers=headers) as r:
-              r.raise_for_status()
-              with open('tiny10_23h2.iso', 'wb') as f:
-                  for chunk in r.iter_content(chunk_size=8192):
-                      f.write(chunk)
-          print('[+] اكتمل التحميل بنجاح.')
+
+          print('[+] جاري محاكاة المتصفح والاتصال بـ Archive.org...')
+          try:
+              # تفعيل تتبع التحويلات التلقائية للموقع (allow_redirects=True)
+              with session.get(target_url, stream=True, headers=headers, allow_redirects=True, timeout=60) as r:
+                  r.raise_for_status()
+                  
+                  # طباعة نوع المحتوى للتأكد من أنه ملف أيزو وليس صفحة ويب
+                  print(f'[+] نوع الملف المستلم من السيرفر: {r.headers.get(\"Content-Type\")}')
+                  
+                  print('[+] جاري بدء عملية السحب والكتابة للقرص...')
+                  with open('tiny10_23h2.iso', 'wb') as f:
+                      for chunk in r.iter_content(chunk_size=1024*1024): # القراءة بحجم 1 ميجابايت لتسريع العملية
+                          if chunk:
+                              f.write(chunk)
+              print('[+] اكتمل تحميل ملف الأيزو بنجاح دون حظر.')
+          except Exception as e:
+              print(f'[-] فشل التحميل بسبب: {e}')
+              sys.exit(1)
           "
 
       - name: Verify Size
         run: |
           FILE_SIZE=$(stat -c%s "tiny10_23h2.iso")
-          echo "حجم الملف المحمل: $FILE_SIZE بايت"
+          echo "حجم الملف المحمل النهائي: $FILE_SIZE بايت"
+          # الفحص للتأكد أن الحجم أكبر من 100 ميجابايت وليس صفحة ويب خطأ
           if [ $FILE_SIZE -lt 100000000 ]; then
-            echo "خطأ: حجم الملف صغير جداً، فشل التحميل."
+            echo "خطأ: حجم الملف صغير جداً، فشل التحميل ولم يتم تجاوز الحظر بنجاح."
             exit 1
           fi
 
@@ -69,21 +93,21 @@ jobs:
           if [ -f "$WIM_FILE" ]; then
               echo "[+] تم العثور على ملف النظام: $WIM_FILE"
               
-              echo "[+] 1. تفاصيل ونوع نسخة الويندوز الأساسية:" >> Windows_ISO_Report.txt
+              echo "[+] 1. تفاصيل ونوع نسخة الويندوز الأساسية (Pro / Home / LTSC):" >> Windows_ISO_Report.txt
               # استخدام أداة wiminfo لقراءة تفاصيل النسخة من داخل النواة مباشرة
               wiminfo "$WIM_FILE" 1 >> Windows_ISO_Report.txt
               echo "" >> Windows_ISO_Report.txt
 
-              echo "[+] 2. فحص مجلدات برنامج الحماية (Windows Defender):" >> Windows_ISO_Report.txt
+              echo "[+] 2. فحص وجود برنامج الحماية (Windows Defender):" >> Windows_ISO_Report.txt
               # استعراض شجرة المجلدات داخل الـ WIM للتحقق من وجود مجلد Defender
               if wimdir "$WIM_FILE" 1 | grep -i "Program Files/Windows Defender" > /dev/null; then
-                  echo "- حالة المجلد: مجلد Windows Defender متواجد في بنية ملفات النظام." >> Windows_ISO_Report.txt
+                  echo "- حالة المجلد: مجلد Windows Defender متواجد في بنية ملفات النظام الأصلية." >> Windows_ISO_Report.txt
               else
-                  echo "- حالة المجلد: لم يتم العثور على مجلد Defender (تم حذفه لتخفيف النسخة)." >> Windows_ISO_Report.txt
+                  echo "- حالة المجلد: لم يتم العثور على مجلد Defender (تم حذفه كلياً لتخفيف النسخة)." >> Windows_ISO_Report.txt
               fi
               echo "" >> Windows_ISO_Report.txt
 
-              echo "[+] 3. قائمة ببعض حزم وتطبيقات النظام المتواجدة:" >> Windows_ISO_Report.txt
+              echo "[+] 3. قائمة بالتطبيقات والبرامج المثبتة مسبقاً داخل النظام:" >> Windows_ISO_Report.txt
               echo "--------------------------------------------------" >> Windows_ISO_Report.txt
               # استخراج قائمة بجميع المجلدات داخل ملفات البرامج لإعطاء لمحة عن التطبيقات المدمجة
               wimdir "$WIM_FILE" 1 | grep -E "^/Program Files/|^/Program Files \(x86\)/" | awk -F'/' '{print $3}' | sort -u | sed 's/^/ - /' >> Windows_ISO_Report.txt
